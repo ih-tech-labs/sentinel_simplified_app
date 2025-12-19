@@ -1,0 +1,190 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+    color: white;
+}
+
+/* Background Video */
+.video-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+video#bgVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.video-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.2); /* Slight tint */
+}
+
+/* UI Layer */
+.ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 40px;
+    box-sizing: border-box;
+    transition: filter 0.5s ease;
+}
+
+/* Blur effect when calling */
+.ui-layer.blurred {
+    filter: blur(20px);
+}
+
+/* Clock & Date */
+.top-bar {
+    text-align: center;
+    margin-top: 100px;
+}
+
+#date-display {
+    font-size: 1.5rem;
+    font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+#clock-display {
+    font-family: 'Outfit', sans-serif;
+    font-size: 12rem; /* Massive iOS style */
+    line-height: 1;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    /* Gradient text effect if desired, matching iOS screenshot orange? */
+    /* background: linear-gradient(to bottom, #ff5e3a, #ff2a68); */
+    /* -webkit-background-clip: text; */
+    /* -webkit-text-fill-color: transparent; */
+    /* Keeping it white based on user preference from history, or orange from image? 
+       User history says "Time color white". Image shows orange. 
+       I'll stick to white but maybe add an orange tint option later. For now white to match history. */
+}
+
+/* Weather Widget */
+.weather-widget {
+    margin-bottom: 50px;
+    display: flex;
+    justify-content: center;
+}
+
+.glass-panel {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 20px 40px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    width: 80%;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+}
+
+.weather-icon {
+    font-size: 3rem;
+}
+
+.weather-info {
+    flex-grow: 1;
+}
+
+.temp {
+    font-size: 3rem;
+    font-weight: 600;
+}
+
+.desc {
+    font-size: 1.2rem;
+    opacity: 0.9;
+}
+
+.range {
+    font-size: 1rem;
+    opacity: 0.7;
+}
+
+.location {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+/* Call Layer */
+.call-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.4);
+    opacity: 1;
+    transition: opacity 0.5s ease;
+}
+
+.call-layer.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.call-modal {
+    width: 90%;
+    height: 60%;
+    flex-direction: column;
+    justify-content: center;
+    background: rgba(20, 20, 20, 0.85); /* Darker glass for call */
+}
+
+.video-container {
+    width: 100%;
+    height: 80%;
+    background: black;
+    border-radius: 20px;
+    overflow: hidden;
+    margin: 20px 0;
+}
+
+#remoteVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    background: #00ff00;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #00ff00;
+}

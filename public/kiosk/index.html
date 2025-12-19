@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel Kiosk</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Outfit:wght@700&display=swap" rel="stylesheet">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <!-- Background Video -->
+    <div class="video-background">
+        <!-- Placeholder video, user will replace -->
+        <video id="bgVideo" autoplay muted loop>
+            <source src="/assets/background.mp4" type="video/mp4">
+        </video>
+        <div class="video-overlay"></div>
+    </div>
+
+    <!-- Idle Interface -->
+    <div id="idle-ui" class="ui-layer">
+        <div class="top-bar">
+            <div id="date-display">Viernes, 19 de diciembre</div>
+            <div id="clock-display">14:59</div>
+        </div>
+
+        <div class="weather-widget">
+            <div class="glass-panel">
+                <div class="weather-icon">☀️</div>
+                <div class="weather-info">
+                    <div class="temp">32°</div>
+                    <div class="desc">Mayormente despejado</div>
+                    <div class="range">H:32° L:19°</div>
+                </div>
+                <div class="location">Buenos Aires</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Call Interface (Hidden by default) -->
+    <div id="call-ui" class="call-layer hidden">
+        <div class="call-modal glass-panel">
+            <h2>Llamada Entrante</h2>
+            <div class="video-container">
+                <video id="remoteVideo" autoplay playsinline></video>
+            </div>
+            <div class="status-indicator">
+                <span class="dot"></span> Conectado
+            </div>
+        </div>
+    </div>
+
+    <script src="kiosk.js"></script>
+</body>
+</html>

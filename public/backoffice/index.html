@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel Backoffice</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Sentinel Backoffice</h1>
+            <div class="status">Kiosk: <span id="kiosk-status" class="offline">Desconectado</span></div>
+        </header>
+
+        <main>
+            <div class="video-grid">
+                <!-- Local Preview (What Kiosk sees) -->
+                <div class="video-card">
+                    <h3>Mi Cámara</h3>
+                    <video id="localVideo" autoplay playsinline muted></video>
+                </div>
+
+                <!-- Remote Audio Viz (Kiosk Audio) - Only Audio from Kiosk -->
+                <div class="video-card">
+                    <h3>Audio Kiosk</h3>
+                    <div id="audio-visualizer">
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                    </div>
+                    <!-- Hidden audio element for playback -->
+                    <audio id="remoteAudio" autoplay></audio>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button id="btn-call" class="btn-primary">📞 Iniciar Llamada</button>
+                <button id="btn-hangup" class="btn-danger" disabled>📴 Cortar</button>
+            </div>
+
+            <div class="sub-controls">
+                <button id="btn-mute" class="btn-secondary" disabled>🎤 Mute Mic</button>
+                <button id="btn-cam" class="btn-secondary" disabled>📷 Camera Off</button>
+            </div>
+        </main>
+    </div>
+
+    <script src="backoffice.js"></script>
+</body>
+
+</html>
