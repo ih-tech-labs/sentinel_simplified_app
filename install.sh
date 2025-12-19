@@ -31,15 +31,40 @@ npm install
 
 echo "Setting up autostart..."
 # We can use PM2 or a Systemd service. PM2 is easier for Node.
+echo "Setting up autostart..."
+# Try to install PM2 if not found
 if ! command -v pm2 &> /dev/null
 then
-    sudo npm install -g pm2
-    pm2 startup
+    echo "PM2 not found. Installing..."
+    # 1. Try installing globally without sudo (Works for NVM)
+    npm install -g pm2
+    
+    # 2. If that failed, and we still don't have pm2, try with sudo but finding npm first
+    if ! command -v pm2 &> /dev/null
+    then
+        echo "Trying sudo npm install..."
+        NPM_PATH=$(which npm)
+        if [ -n "$NPM_PATH" ]; then
+            sudo "$NPM_PATH" install -g pm2
+        else
+            echo "Could not find npm to run with sudo."
+        fi
+    fi
 fi
 
-# Start the server
-pm2 start src/server.js --name sentinel-server
-pm2 save
+# Check if PM2 is installed now
+if command -v pm2 &> /dev/null
+then
+    echo "PM2 installed successfully."
+    pm2 startup
+    pm2 start src/server.js --name sentinel-server
+    pm2 save
+else
+    echo "WARNING: PM2 installation failed. Starting server directly in background."
+    # Fallback to simple background process
+    nohup node src/server.js > sentinel.log 2>&1 &
+fi
+
 
 echo "Server Setup Complete."
 
