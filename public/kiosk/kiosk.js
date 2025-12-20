@@ -50,11 +50,11 @@ async function updateWeather() {
         const max = Math.round(data.daily.temperature_2m_max[0]);
         const min = Math.round(data.daily.temperature_2m_min[0]);
 
-        // Basic WMO code mapping
+        // Basic WMO code mapping with Emojis (Stable)
         let icon = '☀️';
         let desc = 'Despejado';
 
-        if (code > 0 && code <= 3) { icon = '⛅'; desc = 'Parcialmente Nublado'; }
+        if (code > 0 && code <= 3) { icon = '⛅'; desc = 'Nublado'; }
         else if (code > 40 && code < 60) { icon = '🌫️'; desc = 'Niebla'; }
         else if (code >= 60 && code < 80) { icon = '🌧️'; desc = 'Lluvioso'; }
         else if (code >= 80) { icon = '⛈️'; desc = 'Tormenta'; }
@@ -77,13 +77,18 @@ setInterval(updateWeather, 600000); // 10 mins
 const ROOM_ID = 'sentinel-room';
 socket.emit('join', ROOM_ID);
 
+// 1. Respond to Status Checks (Fixes "Desconectado" on Backoffice)
+socket.on('ping_req', () => {
+    socket.emit('ping_res', ROOM_ID);
+});
+
 socket.on('call_incoming', async () => {
     console.log("Incoming Call...");
 
     // UI Transition
     idleUI.classList.add('blurred');
     callUI.classList.remove('hidden');
-    bgVideo.pause(); // Optional: pause BG video to save resources
+    bgVideo.pause();
 
     // Initialize WebRTC
     await startCall();
