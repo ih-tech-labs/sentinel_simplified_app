@@ -22,7 +22,7 @@ let localStream;
 function updateClock() {
     const now = new Date();
     // Format: HH:MM
-    const timeString = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const timeString = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
     clockDisplay.textContent = timeString;
 
     // Format: Dayname, DD of montname

@@ -1,14 +1,12 @@
 const socket = io();
 
-// UI Elements
-const btnToggle = document.getElementById('btn-toggle-call');
+const btnCall = document.getElementById('btn-call');
+const btnHangup = document.getElementById('btn-hangup');
 const btnMute = document.getElementById('btn-mute');
 const btnCam = document.getElementById('btn-cam');
-const toggleText = document.getElementById('toggle-text');
 const localVideo = document.getElementById('localVideo');
 const remoteAudio = document.getElementById('remoteAudio');
 const kioskStatus = document.getElementById('kiosk-status');
-const visualizer = document.getElementById('audio-visualizer');
 
 const rtcConfig = {
     iceServers: [
@@ -18,29 +16,11 @@ const rtcConfig = {
 
 let peerConnection;
 let localStream;
-let isCallActive = false;
 const ROOM_ID = 'sentinel-room';
 
-// Init
 socket.emit('join', ROOM_ID);
 
-// ------------------------------------
-// Socket Listeners
-// ------------------------------------
-socket.on('connect', () => {
-    // console.log("Connected");
-});
-
-socket.on('disconnect', () => {
-    kioskStatus.className = 'offline';
-    kioskStatus.textContent = 'OFFLINE';
-});
-
-// Since we don't have a specific "Kiosk Joined" event in existing server, 
-// we assume Kiosk is there if user initiates. 
-// A robust version would listen for 'user_joined' but for now we follow existing logic.
-
-// WebRTC Signaling
+// Signaling
 socket.on('answer', async (answer) => {
     if (peerConnection) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
@@ -55,28 +35,33 @@ socket.on('candidate', async (candidate) => {
     }
 });
 
-// ------------------------------------
-// Button Handlers
-// ------------------------------------
+// Controls
+btnCall.onclick = startCall;
+btnHangup.onclick = endCall;
 
-btnToggle.onclick = () => {
-    if (!isCallActive) {
-        startCall();
-    } else {
-        endCall();
+btnMute.onclick = () => {
+    if (localStream) {
+        const audioTrack = localStream.getAudioTracks()[0];
+        audioTrack.enabled = !audioTrack.enabled;
+        btnMute.textContent = audioTrack.enabled ? '🎤 Mute Mic' : '🎤 Unmute';
+        btnMute.style.background = audioTrack.enabled ? '#444' : '#f44336';
     }
 };
 
-btnMute.onclick = toggleMute;
-btnCam.onclick = toggleCam;
-
-// ------------------------------------
-// Call Logic
-// ------------------------------------
+btnCam.onclick = () => {
+    if (localStream) {
+        const videoTrack = localStream.getVideoTracks()[0];
+        videoTrack.enabled = !videoTrack.enabled;
+        btnCam.textContent = videoTrack.enabled ? '📷 Camera Off' : '📷 Camera On';
+        btnCam.style.background = videoTrack.enabled ? '#444' : '#f44336';
+    }
+};
 
 async function startCall() {
-    isCallActive = true;
-    updateUIState(true);
+    btnCall.disabled = true;
+    btnHangup.disabled = false;
+    btnMute.disabled = false;
+    btnCam.disabled = false;
 
     // Notify Kiosk
     socket.emit('start_call', ROOM_ID);
@@ -84,21 +69,15 @@ async function startCall() {
     // Setup WebRTC
     peerConnection = new RTCPeerConnection(rtcConfig);
 
-    // Get Media
+    // Get Media (Audio + Video)
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
         localVideo.srcObject = localStream;
         localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-        // Init Secondary Buttons State
-        btnMute.disabled = false;
-        btnCam.disabled = false;
-        updateMediaButtons();
-
     } catch (err) {
         console.error("Error accessing media:", err);
-        alert("Error: No se pudo acceder a Cámara/Micrófono.");
-        endCall(); // Revert
+        alert("Error accessing Camera/Microphone");
+        endCall();
         return;
     }
 
@@ -106,8 +85,6 @@ async function startCall() {
     peerConnection.ontrack = (event) => {
         if (remoteAudio.srcObject !== event.streams[0]) {
             remoteAudio.srcObject = event.streams[0];
-            // Activate Visualizer Animation class
-            visualizer.classList.add('audio-active');
         }
     };
 
@@ -125,93 +102,21 @@ async function startCall() {
 }
 
 function endCall() {
-    isCallActive = false;
-    updateUIState(false);
+    btnCall.disabled = false;
+    btnHangup.disabled = true;
+    btnMute.disabled = true;
+    btnCam.disabled = true;
 
     socket.emit('end_call', ROOM_ID);
 
-    // Stop Media
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-        localStream = null;
-    }
-
-    // Close Peer
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
     }
-
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
     localVideo.srcObject = null;
     remoteAudio.srcObject = null;
-
-    // Reset Buttons
-    btnMute.disabled = true;
-    btnCam.disabled = true;
-    visualizer.classList.remove('audio-active');
-
-    resetMediaButtons();
-}
-
-// ------------------------------------
-// UI Helpers
-// ------------------------------------
-
-function updateUIState(calling) {
-    if (calling) {
-        document.body.classList.add('on-call');
-
-        // Button becomes END CALL
-        btnToggle.className = 'btn-main active';
-        toggleText.textContent = 'FINALIZAR';
-
-    } else {
-        document.body.classList.remove('on-call');
-
-        // Button becomes START
-        btnToggle.className = 'btn-main idle';
-        toggleText.textContent = 'INICIAR';
-    }
-}
-
-function toggleMute() {
-    if (localStream) {
-        const audioTrack = localStream.getAudioTracks()[0];
-        audioTrack.enabled = !audioTrack.enabled;
-        updateMediaButtons();
-    }
-}
-
-function toggleCam() {
-    if (localStream) {
-        const videoTrack = localStream.getVideoTracks()[0];
-        videoTrack.enabled = !videoTrack.enabled;
-        updateMediaButtons();
-    }
-}
-
-function updateMediaButtons() {
-    if (!localStream) return;
-
-    const audioTrack = localStream.getAudioTracks()[0];
-    const videoTrack = localStream.getVideoTracks()[0];
-
-    // Mute Button
-    if (audioTrack && audioTrack.enabled) {
-        btnMute.className = 'btn-sec on'; // Active/On
-    } else {
-        btnMute.className = 'btn-sec off'; // Muted
-    }
-
-    // Cam Button
-    if (videoTrack && videoTrack.enabled) {
-        btnCam.className = 'btn-sec on';
-    } else {
-        btnCam.className = 'btn-sec off';
-    }
-}
-
-function resetMediaButtons() {
-    btnMute.className = 'btn-sec';
-    btnCam.className = 'btn-sec';
 }

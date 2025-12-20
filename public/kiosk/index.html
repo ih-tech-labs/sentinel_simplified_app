@@ -1,16 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sentinel Kiosk</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Outfit:wght@700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Outfit:wght@700&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
 </head>
-
 <body>
     <!-- Background Video -->
     <div class="video-background">
@@ -44,7 +41,7 @@
     <!-- Call Interface (Hidden by default) -->
     <div id="call-ui" class="call-layer hidden">
         <div class="call-modal glass-panel">
-            <h2>Centro de Control</h2>
+            <h2>Llamada Entrante</h2>
             <div class="video-container">
                 <video id="remoteVideo" autoplay playsinline></video>
             </div>
@@ -56,5 +53,4 @@
 
     <script src="kiosk.js"></script>
 </body>
-
 </html>

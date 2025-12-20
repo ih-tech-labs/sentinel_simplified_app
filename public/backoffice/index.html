@@ -6,65 +6,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sentinel Backoffice</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
 </head>
 
 <body>
     <div class="container">
         <header>
-            <div class="brand">
-                <span class="dot-brand"></span> SENTINEL
-            </div>
-            <div class="status">
-                <span id="kiosk-status" class="offline">OFFLINE</span>
-            </div>
+            <h1>Sentinel Backoffice</h1>
+            <div class="status">Kiosk: <span id="kiosk-status" class="offline">Desconectado</span></div>
         </header>
 
         <main>
             <div class="video-grid">
-                <!-- Local Preview -->
-                <div class="video-card large">
-                    <div class="video-wrapper">
-                        <video id="localVideo" autoplay playsinline muted class="mirror"></video>
-                        <div class="label">TRANSMISIÓN (CAM 01)</div>
-                    </div>
+                <!-- Local Preview (What Kiosk sees) -->
+                <div class="video-card">
+                    <h3>Mi Cámara</h3>
+                    <video id="localVideo" autoplay playsinline muted></video>
                 </div>
 
-                <!-- Remote Audio -->
-                <div class="audio-card">
-                    <div class="label">AUDIO RECEPCIÓN</div>
+                <!-- Remote Audio Viz (Kiosk Audio) - Only Audio from Kiosk -->
+                <div class="video-card">
+                    <h3>Audio Kiosk</h3>
                     <div id="audio-visualizer">
-                        <div class="wave"></div>
-                        <div class="wave"></div>
-                        <div class="wave"></div>
-                        <div class="wave"></div>
-                        <div class="wave"></div>
+                        <div class="bar"></div>
+                        <div class="bar"></div>
+                        <div class="bar"></div>
                     </div>
                     <!-- Hidden audio element for playback -->
                     <audio id="remoteAudio" autoplay></audio>
                 </div>
             </div>
 
-            <!-- Controls -->
-            <div class="controls-container">
-                <div class="main-action">
-                    <button id="btn-toggle-call" class="btn-main idle" title="Iniciar Transmisión">
-                        <div class="icon-wrapper">
-                            <span class="icon">📡</span>
-                        </div>
-                        <span class="text" id="toggle-text">INICIAR</span>
-                    </button>
-                </div>
+            <div class="controls">
+                <button id="btn-call" class="btn-primary">📞 Iniciar Llamada</button>
+                <button id="btn-hangup" class="btn-danger" disabled>📴 Cortar</button>
+            </div>
 
-                <div class="secondary-actions">
-                    <button id="btn-mute" class="btn-sec" title="Microfono" disabled>
-                        <span>🎤</span>
-                    </button>
-                    <button id="btn-cam" class="btn-sec" title="Camara" disabled>
-                        <span>📷</span>
-                    </button>
-                </div>
+            <div class="sub-controls">
+                <button id="btn-mute" class="btn-secondary" disabled>🎤 Mute Mic</button>
+                <button id="btn-cam" class="btn-secondary" disabled>📷 Camera Off</button>
             </div>
         </main>
     </div>

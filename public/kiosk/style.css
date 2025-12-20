@@ -1,5 +1,4 @@
-body,
-html {
+body, html {
     margin: 0;
     padding: 0;
     width: 100%;
@@ -31,8 +30,7 @@ video#bgVideo {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.2);
-    /* Slight tint */
+    background: rgba(0, 0, 0, 0.2); /* Slight tint */
 }
 
 /* UI Layer */
@@ -65,17 +63,16 @@ video#bgVideo {
 #date-display {
     font-size: 1.5rem;
     font-weight: 600;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
 #clock-display {
     font-family: 'Outfit', sans-serif;
-    font-size: 12rem;
-    /* Massive iOS style */
+    font-size: 12rem; /* Massive iOS style */
     line-height: 1;
     font-weight: 700;
     color: rgba(255, 255, 255, 0.95);
-    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 4px 8px rgba(0,0,0,0.3);
     /* Gradient text effect if desired, matching iOS screenshot orange? */
     /* background: linear-gradient(to bottom, #ff5e3a, #ff2a68); */
     /* -webkit-background-clip: text; */
@@ -93,22 +90,17 @@ video#bgVideo {
 }
 
 .glass-panel {
-    background: rgba(40, 40, 40, 0.6);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-radius: 30px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     padding: 20px 40px;
     display: flex;
     align-items: center;
     gap: 20px;
-    width: 60%;
-    /* Adjusted from 80% */
-    max-width: 600px;
-    /* Limit max width */
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-    /* Promote to own layer to help flickering */
-    transform: translates3d(0, 0, 0);
+    width: 80%;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
 }
 
 .weather-icon {
@@ -150,10 +142,9 @@ video#bgVideo {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.4);
     opacity: 1;
     transition: opacity 0.5s ease;
-    transform: translates3d(0, 0, 0);
 }
 
 .call-layer.hidden {
@@ -166,8 +157,7 @@ video#bgVideo {
     height: 60%;
     flex-direction: column;
     justify-content: center;
-    background: rgba(20, 20, 20, 0.85);
-    /* Darker glass for call */
+    background: rgba(20, 20, 20, 0.85); /* Darker glass for call */
 }
 
 .video-container {

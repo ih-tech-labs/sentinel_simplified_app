@@ -1,19 +1,13 @@
 body {
     font-family: 'Inter', sans-serif;
-    background: #050505;
-    color: #e0e0e0;
+    background: #111;
+    color: white;
     margin: 0;
-    height: 100vh;
-    overflow: hidden;
+    padding: 20px;
 }
 
 .container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    padding: 20px 40px;
-    box-sizing: border-box;
-    max-width: 1400px;
+    max-width: 800px;
     margin: 0 auto;
 }
 
@@ -21,268 +15,121 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-bottom: 1px solid #333;
     padding-bottom: 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.brand {
-    font-weight: 300;
-    font-size: 1.2rem;
-    letter-spacing: 4px;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.dot-brand {
-    width: 8px;
-    height: 8px;
-    background: #00ff88;
-    border-radius: 50%;
-    box-shadow: 0 0 10px #00ff88;
+    margin-bottom: 30px;
 }
 
 .status span {
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 1px;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.9rem;
 }
 
 .status .online {
-    color: #00ff88;
-    border: 1px solid rgba(0, 255, 136, 0.3);
+    background: #1b5e20;
+    color: #a5d6a7;
 }
 
 .status .offline {
-    color: #ff3333;
-    border: 1px solid rgba(255, 51, 51, 0.3);
-}
-
-/* Main Grid */
-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 40px;
-    padding: 40px 0;
+    background: #b71c1c;
+    color: #ffcdd2;
 }
 
 .video-grid {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 20px;
-    height: 60%;
-    justify-content: center;
+    margin-bottom: 30px;
 }
 
 .video-card {
-    flex: 2;
-    background: #111;
-    border-radius: 20px;
-    border: 1px solid #222;
-    overflow: hidden;
-    position: relative;
-    max-width: 800px;
-}
-
-.video-wrapper {
-    width: 100%;
-    height: 100%;
-    position: relative;
+    background: #222;
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+    height: 250px;
+    display: flex;
+    flex-direction: column;
 }
 
 video {
     width: 100%;
     height: 100%;
+    background: #000;
+    border-radius: 5px;
     object-fit: cover;
 }
 
-.mirror {
-    transform: scaleX(-1);
-}
-
-.audio-card {
-    flex: 1;
-    background: #0f0f0f;
-    border-radius: 20px;
-    border: 1px solid #222;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    max-width: 400px;
-}
-
-.label {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    font-size: 0.7rem;
-    color: #666;
-    letter-spacing: 1px;
-}
-
-/* Audio Visualizer */
 #audio-visualizer {
+    flex-grow: 1;
     display: flex;
-    gap: 10px;
+    justify-content: center;
     align-items: center;
-    height: 100px;
+    gap: 5px;
 }
 
-.wave {
-    width: 6px;
-    height: 20px;
-    background: #333;
-    border-radius: 10px;
-    transition: height 0.1s ease;
+.bar {
+    width: 10px;
+    height: 50px;
+    background: #007bff;
+    animation: bounce 1s infinite;
 }
 
-.audio-active .wave {
-    background: #00ff88;
-    animation: wave-anim 1s infinite ease-in-out;
-}
-
-.audio-active .wave:nth-child(2) {
-    animation-delay: 0.1s;
-}
-
-.audio-active .wave:nth-child(3) {
-    animation-delay: 0.2s;
-}
-
-.audio-active .wave:nth-child(4) {
-    animation-delay: 0.3s;
-}
-
-.audio-active .wave:nth-child(5) {
-    animation-delay: 0.4s;
-}
-
-@keyframes wave-anim {
+@keyframes bounce {
 
     0%,
     100% {
-        height: 20px;
-        opacity: 0.5;
+        transform: scaleY(0.5);
     }
 
     50% {
-        height: 80px;
-        opacity: 1;
+        transform: scaleY(1);
     }
 }
 
-/* Controls */
-.controls-container {
+.controls,
+.sub-controls {
     display: flex;
     justify-content: center;
-    align-items: center;
-    gap: 40px;
-}
-
-/* Main Button (Toggle) */
-.btn-main {
-    width: 200px;
-    /* Reduced since no text in some designs, but keeping text for clarity */
-    height: 80px;
-    border-radius: 40px;
-    border: none;
-    cursor: pointer;
-    font-size: 1rem;
-    font-weight: 600;
-    letter-spacing: 2px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 15px;
-    transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-}
-
-.btn-main .icon {
-    font-size: 1.5rem;
-}
-
-/* States */
-.btn-main.idle {
-    background: linear-gradient(135deg, #1a1a1a, #0a0a0a);
-    border: 1px solid #333;
-    color: #fff;
-}
-
-.btn-main.idle:hover {
-    border-color: #00ff88;
-    box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
-}
-
-.btn-main.active {
-    background: #ff3333;
-    color: white;
-    box-shadow: 0 0 30px rgba(255, 51, 51, 0.4);
-}
-
-.btn-main.active:hover {
-    background: #cc0000;
-}
-
-/* Secondary Buttons */
-.secondary-actions {
-    display: flex;
     gap: 20px;
+    margin-bottom: 20px;
 }
 
-.btn-sec {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: #111;
-    border: 1px solid #222;
-    color: #555;
+button {
+    padding: 15px 30px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
     cursor: pointer;
-    font-size: 1.2rem;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.btn-sec:not(:disabled):hover {
-    background: #222;
-    color: white;
-}
-
-.btn-sec.on {
-    background: #222;
-    color: #00ff88;
-    border-color: #00ff88;
-}
-
-.btn-sec.off {
-    background: #222;
-    color: #ff3333;
-    position: relative;
-}
-
-.btn-sec.off::after {
-    content: '';
-    position: absolute;
-    width: 50%;
-    height: 2px;
-    background: #ff3333;
-    transform: rotate(45deg);
+    font-weight: 600;
+    transition: all 0.2s;
 }
 
 button:disabled {
-    opacity: 0.3;
+    opacity: 0.5;
     cursor: not-allowed;
 }
 
-/* On Call State Changes */
-body.on-call .audio-card {
-    border-color: #00ff88;
+.btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.btn-danger {
+    background: #f44336;
+    color: white;
+}
+
+.btn-secondary {
+    background: #444;
+    color: white;
+}
+
+.btn-primary:not(:disabled):hover {
+    background: #0056b3;
+}
+
+.btn-danger:not(:disabled):hover {
+    background: #d32f2f;
 }
