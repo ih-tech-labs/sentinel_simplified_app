@@ -1,245 +1,288 @@
 body {
     font-family: 'Inter', sans-serif;
-    background: #0a0a0a;
-    /* Deep black/gray */
-    color: #f0f0f0;
+    background: #050505;
+    color: #e0e0e0;
     margin: 0;
-    padding: 0;
     height: 100vh;
-    display: flex;
-    flex-direction: column;
+    overflow: hidden;
 }
 
 .container {
-    max-width: 1200px;
-    width: 100%;
-    margin: 0 auto;
-    height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 20px;
+    height: 100%;
+    padding: 20px 40px;
     box-sizing: border-box;
+    max-width: 1400px;
+    margin: 0 auto;
 }
 
 header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 0;
-    margin-bottom: 20px;
-    border-bottom: 1px solid #333;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-h1 {
+.brand {
     font-weight: 300;
-    font-size: 1.5rem;
-    margin: 0;
-    color: #888;
+    font-size: 1.2rem;
+    letter-spacing: 4px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dot-brand {
+    width: 8px;
+    height: 8px;
+    background: #00ff88;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #00ff88;
 }
 
 .status span {
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     font-weight: 600;
-    text-transform: uppercase;
     letter-spacing: 1px;
+    padding: 4px 8px;
+    border-radius: 4px;
 }
 
 .status .online {
-    background: rgba(27, 94, 32, 0.3);
-    color: #66bb6a;
-    border: 1px solid #1b5e20;
+    color: #00ff88;
+    border: 1px solid rgba(0, 255, 136, 0.3);
 }
 
 .status .offline {
-    background: rgba(183, 28, 28, 0.3);
-    color: #ef5350;
-    border: 1px solid #b71c1c;
+    color: #ff3333;
+    border: 1px solid rgba(255, 51, 51, 0.3);
 }
 
-/* Main layout: Video area takes available space, controls at bottom */
+/* Main Grid */
 main {
-    flex-grow: 1;
+    flex: 1;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 20px;
-    min-height: 0;
-    /* Important for flex scrolling */
+    gap: 40px;
+    padding: 40px 0;
 }
 
 .video-grid {
     display: flex;
-    justify-content: center;
     gap: 20px;
-    flex-wrap: wrap;
-    height: 100%;
-    /* Fill available space */
-    align-items: center;
+    height: 60%;
+    justify-content: center;
 }
 
 .video-card {
-    background: #1a1a1a;
-    border-radius: 16px;
-    padding: 10px;
-    position: relative;
-    /* Aspect ratio mainly determined by content, but limit max size */
-    max-width: 480px;
-    width: 100%;
-    aspect-ratio: 16/9;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    flex: 2;
+    background: #111;
+    border-radius: 20px;
+    border: 1px solid #222;
     overflow: hidden;
+    position: relative;
+    max-width: 800px;
 }
 
-.video-card h3 {
-    position: absolute;
-    top: 10px;
-    left: 15px;
-    margin: 0;
-    font-size: 0.8rem;
-    background: rgba(0, 0, 0, 0.6);
-    padding: 2px 8px;
-    border-radius: 4px;
-    z-index: 10;
+.video-wrapper {
+    width: 100%;
+    height: 100%;
+    position: relative;
 }
 
 video {
     width: 100%;
     height: 100%;
-    border-radius: 8px;
     object-fit: cover;
 }
 
-/* Audio Visualizer styling */
+.mirror {
+    transform: scaleX(-1);
+}
+
+.audio-card {
+    flex: 1;
+    background: #0f0f0f;
+    border-radius: 20px;
+    border: 1px solid #222;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    max-width: 400px;
+}
+
+.label {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    font-size: 0.7rem;
+    color: #666;
+    letter-spacing: 1px;
+}
+
+/* Audio Visualizer */
 #audio-visualizer {
     display: flex;
-    gap: 6px;
-    height: 60px;
+    gap: 10px;
     align-items: center;
+    height: 100px;
 }
 
-.bar {
-    width: 8px;
-    background: #4caf50;
-    border-radius: 4px;
-    animation: bounce 1.2s infinite ease-in-out;
+.wave {
+    width: 6px;
+    height: 20px;
+    background: #333;
+    border-radius: 10px;
+    transition: height 0.1s ease;
 }
 
-.bar:nth-child(2) {
+.audio-active .wave {
+    background: #00ff88;
+    animation: wave-anim 1s infinite ease-in-out;
+}
+
+.audio-active .wave:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.audio-active .wave:nth-child(3) {
     animation-delay: 0.2s;
-    height: 40px;
 }
 
-.bar:nth-child(3) {
+.audio-active .wave:nth-child(4) {
+    animation-delay: 0.3s;
+}
+
+.audio-active .wave:nth-child(5) {
     animation-delay: 0.4s;
-    height: 70px;
 }
 
-@keyframes bounce {
+@keyframes wave-anim {
 
     0%,
     100% {
-        transform: scaleY(0.4);
+        height: 20px;
         opacity: 0.5;
     }
 
     50% {
-        transform: scaleY(1);
+        height: 80px;
         opacity: 1;
     }
 }
 
-/* Bottom Control Bar */
-.control-bar {
-    background: #1e1e1e;
-    padding: 15px 30px;
-    border-radius: 50px;
-    margin: 0 auto;
+/* Controls */
+.controls-container {
     display: flex;
-    gap: 15px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-    border: 1px solid #333;
-    z-index: 100;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
 }
 
-button {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
+/* Main Button (Toggle) */
+.btn-main {
+    width: 200px;
+    /* Reduced since no text in some designs, but keeping text for clarity */
+    height: 80px;
+    border-radius: 40px;
     border: none;
-    font-size: 1.2rem;
     cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 2px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    gap: 15px;
+    transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.btn-main .icon {
+    font-size: 1.5rem;
+}
+
+/* States */
+.btn-main.idle {
+    background: linear-gradient(135deg, #1a1a1a, #0a0a0a);
+    border: 1px solid #333;
+    color: #fff;
+}
+
+.btn-main.idle:hover {
+    border-color: #00ff88;
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+}
+
+.btn-main.active {
+    background: #ff3333;
     color: white;
-    background: #333;
+    box-shadow: 0 0 30px rgba(255, 51, 51, 0.4);
 }
 
-button:hover:not(:disabled) {
-    transform: translateY(-5px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+.btn-main.active:hover {
+    background: #cc0000;
 }
 
-button:disabled {
-    background: #222;
+/* Secondary Buttons */
+.secondary-actions {
+    display: flex;
+    gap: 20px;
+}
+
+.btn-sec {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #111;
+    border: 1px solid #222;
     color: #555;
-    cursor: not-allowed;
-    transform: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* Specific Button Styles */
-.btn-call {
-    background: #2e7d32;
+.btn-sec:not(:disabled):hover {
+    background: #222;
+    color: white;
 }
 
-/* Green */
-.btn-call:hover:not(:disabled) {
-    background: #4caf50;
+.btn-sec.on {
+    background: #222;
+    color: #00ff88;
+    border-color: #00ff88;
 }
 
-.btn-hangup {
-    background: #c62828;
-}
-
-/* Red */
-.btn-hangup:hover:not(:disabled) {
-    background: #ef5350;
-}
-
-.btn-active {
-    background: #333;
-}
-
-.btn-inactive {
-    background: #b71c1c;
+.btn-sec.off {
+    background: #222;
+    color: #ff3333;
     position: relative;
 }
 
-/* Strikethrough for inactive media buttons */
-.btn-inactive::after {
+.btn-sec.off::after {
     content: '';
     position: absolute;
-    width: 80%;
+    width: 50%;
     height: 2px;
-    background: white;
+    background: #ff3333;
     transform: rotate(45deg);
 }
 
-/* Tooltip on hover */
-button[title]:hover::before {
-    content: attr(title);
-    position: absolute;
-    bottom: 60px;
-    background: rgba(0, 0, 0, 0.8);
-    padding: 5px 10px;
-    border-radius: 5px;
-    font-size: 0.8rem;
-    white-space: nowrap;
+button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* On Call State Changes */
+body.on-call .audio-card {
+    border-color: #00ff88;
 }

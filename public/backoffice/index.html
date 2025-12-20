@@ -13,38 +13,58 @@
 <body>
     <div class="container">
         <header>
-            <h1>SENTINEL <span style="font-weight:600; color:white">BACKOFFICE</span></h1>
-            <div class="status">Estado: <span id="kiosk-status" class="offline">Desconectado</span></div>
+            <div class="brand">
+                <span class="dot-brand"></span> SENTINEL
+            </div>
+            <div class="status">
+                <span id="kiosk-status" class="offline">OFFLINE</span>
+            </div>
         </header>
 
         <main>
             <div class="video-grid">
                 <!-- Local Preview -->
-                <div class="video-card">
-                    <h3>MI CÁMARA</h3>
-                    <video id="localVideo" autoplay playsinline muted></video>
+                <div class="video-card large">
+                    <div class="video-wrapper">
+                        <video id="localVideo" autoplay playsinline muted class="mirror"></video>
+                        <div class="label">TRANSMISIÓN (CAM 01)</div>
+                    </div>
                 </div>
 
-                <!-- Remote Audio Viz -->
-                <div class="video-card">
-                    <h3>KIOSK AUDIO</h3>
+                <!-- Remote Audio -->
+                <div class="audio-card">
+                    <div class="label">AUDIO RECEPCIÓN</div>
                     <div id="audio-visualizer">
-                        <div class="bar"></div>
-                        <div class="bar"></div>
-                        <div class="bar"></div>
+                        <div class="wave"></div>
+                        <div class="wave"></div>
+                        <div class="wave"></div>
+                        <div class="wave"></div>
+                        <div class="wave"></div>
                     </div>
                     <!-- Hidden audio element for playback -->
                     <audio id="remoteAudio" autoplay></audio>
                 </div>
             </div>
 
-            <!-- Controls (Bottom Bar) -->
-            <div class="control-bar">
-                <button id="btn-call" class="btn-call" title="Iniciar Llamada">📞</button>
-                <button id="btn-hangup" class="btn-hangup" title="Cortar Llamada" disabled>📴</button>
-                <div style="width: 1px; background: #444; margin: 0 10px;"></div> <!-- Separator -->
-                <button id="btn-mute" class="btn-active" title="Mutear Micrófono" disabled>🎙️</button>
-                <button id="btn-cam" class="btn-active" title="Apagar Cámara" disabled>📷</button>
+            <!-- Controls -->
+            <div class="controls-container">
+                <div class="main-action">
+                    <button id="btn-toggle-call" class="btn-main idle" title="Iniciar Transmisión">
+                        <div class="icon-wrapper">
+                            <span class="icon">📡</span>
+                        </div>
+                        <span class="text" id="toggle-text">INICIAR</span>
+                    </button>
+                </div>
+
+                <div class="secondary-actions">
+                    <button id="btn-mute" class="btn-sec" title="Microfono" disabled>
+                        <span>🎤</span>
+                    </button>
+                    <button id="btn-cam" class="btn-sec" title="Camara" disabled>
+                        <span>📷</span>
+                    </button>
+                </div>
             </div>
         </main>
     </div>

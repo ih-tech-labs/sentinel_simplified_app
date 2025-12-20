@@ -93,11 +93,11 @@ video#bgVideo {
 }
 
 .glass-panel {
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: rgba(40, 40, 40, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 30px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     padding: 20px 40px;
     display: flex;
     align-items: center;
@@ -106,7 +106,9 @@ video#bgVideo {
     /* Adjusted from 80% */
     max-width: 600px;
     /* Limit max width */
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    /* Promote to own layer to help flickering */
+    transform: translates3d(0, 0, 0);
 }
 
 .weather-icon {
@@ -148,9 +150,10 @@ video#bgVideo {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.7);
     opacity: 1;
     transition: opacity 0.5s ease;
+    transform: translates3d(0, 0, 0);
 }
 
 .call-layer.hidden {
