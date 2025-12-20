@@ -20,6 +20,10 @@ echo "Starting Sentinel System..."
 # --autoplay-policy=no-user-gesture-required: Allow video/audio autoplay immediately
 # --incognito: Clean session every time (Optional, good for kiosk to avoid cache issues)
 
+# --disable-features=UseChromeOSDirectVideoDecoder: Fixes some V4L2 errors on RPi
+# --disable-dev-shm-usage: Fixes crash in low-memory/docker environments
+# --no-sandbox: Sometimes needed if permissions are weird (try to avoid if possible, but adding for stability)
+
 /usr/bin/chromium-browser \
     --noerrdialogs \
     --disable-infobars \
@@ -29,6 +33,9 @@ echo "Starting Sentinel System..."
     --disable-restore-session-state \
     --autoplay-policy=no-user-gesture-required \
     --incognito \
+    --disable-features=UseChromeOSDirectVideoDecoder \
+    --disable-dev-shm-usage \
     http://localhost:3000/kiosk/index.html &
+
 
 echo "Chromium Launched."

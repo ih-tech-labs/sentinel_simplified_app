@@ -8,7 +8,10 @@ echo "Checking dependencies..."
 # Update System
 sudo apt-get update
 
-# Install Node.js if not present
+# Install System Dependencies (Chromium, Fonts, Utils)
+echo "Installing system dependencies..."
+sudo apt-get install -y chromium-browser fontconfig fonts-liberation x11-xserver-utils
+
 if ! command -v node &> /dev/null
 then
     echo "Node.js could not be found, installing..."
