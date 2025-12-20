@@ -20,8 +20,12 @@ echo "Starting Sentinel System..."
 # --autoplay-policy=no-user-gesture-required: Allow video/audio autoplay immediately
 # --incognito: Clean session every time (Optional, good for kiosk to avoid cache issues)
 
+# Fix Fontconfig error
+export FONTCONFIG_PATH=/etc/fonts
+
 # --disable-features=UseChromeOSDirectVideoDecoder: Fixes some V4L2 errors on RPi
 # --disable-dev-shm-usage: Fixes crash in low-memory/docker environments
+
 # --no-sandbox: Sometimes needed if permissions are weird (try to avoid if possible, but adding for stability)
 
 /usr/bin/chromium-browser \
