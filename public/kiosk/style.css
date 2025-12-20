@@ -1,4 +1,5 @@
-body, html {
+body,
+html {
     margin: 0;
     padding: 0;
     width: 100%;
@@ -30,7 +31,8 @@ video#bgVideo {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.2); /* Slight tint */
+    background: rgba(0, 0, 0, 0.2);
+    /* Slight tint */
 }
 
 /* UI Layer */
@@ -63,16 +65,17 @@ video#bgVideo {
 #date-display {
     font-size: 1.5rem;
     font-weight: 600;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 #clock-display {
     font-family: 'Outfit', sans-serif;
-    font-size: 12rem; /* Massive iOS style */
+    font-size: 12rem;
+    /* Massive iOS style */
     line-height: 1;
     font-weight: 700;
     color: rgba(255, 255, 255, 0.95);
-    text-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     /* Gradient text effect if desired, matching iOS screenshot orange? */
     /* background: linear-gradient(to bottom, #ff5e3a, #ff2a68); */
     /* -webkit-background-clip: text; */
@@ -84,51 +87,72 @@ video#bgVideo {
 
 /* Weather Widget */
 .weather-widget {
-    margin-bottom: 50px;
+    margin-bottom: 80px;
+    /* More space from bottom */
     display: flex;
     justify-content: center;
+    width: 100%;
 }
 
 .glass-panel {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(20, 20, 20, 0.4);
+    /* Darker, more premium tint */
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-radius: 30px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    padding: 20px 40px;
+    border-radius: 40px;
+    /* Rounder corners */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 30px;
     display: flex;
+    flex-direction: column;
+    /* Vertical layout */
     align-items: center;
-    gap: 20px;
-    width: 80%;
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    gap: 15px;
+    width: 250px;
+    /* Narrower fixed width */
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 
 .weather-icon {
-    font-size: 3rem;
+    font-size: 4rem;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.2));
 }
 
 .weather-info {
-    flex-grow: 1;
+    flex-grow: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
 }
 
 .temp {
-    font-size: 3rem;
-    font-weight: 600;
+    font-size: 4rem;
+    font-weight: 700;
+    line-height: 1;
+    font-family: 'Outfit', sans-serif;
 }
 
 .desc {
-    font-size: 1.2rem;
-    opacity: 0.9;
+    font-size: 1.1rem;
+    opacity: 0.8;
+    font-weight: 500;
 }
 
 .range {
-    font-size: 1rem;
-    opacity: 0.7;
+    font-size: 0.9rem;
+    opacity: 0.6;
+    margin-top: 5px;
 }
 
 .location {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     font-weight: 600;
+    margin-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 15px;
+    width: 100%;
 }
 
 /* Call Layer */
@@ -142,7 +166,8 @@ video#bgVideo {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.6);
+    /* Darker overlay */
     opacity: 1;
     transition: opacity 0.5s ease;
 }
@@ -153,20 +178,39 @@ video#bgVideo {
 }
 
 .call-modal {
-    width: 90%;
-    height: 60%;
+    width: 60%;
+    /* Narrower modal */
+    height: auto;
+    aspect-ratio: 9/16;
+    /* Portrait ratio for the modal itself */
+    max-height: 80vh;
     flex-direction: column;
-    justify-content: center;
-    background: rgba(20, 20, 20, 0.85); /* Darker glass for call */
+    justify-content: flex-start;
+    padding: 40px;
+    background: #1a1a1a;
+    /* Solid dark background for call */
+    border: 1px solid #333;
+}
+
+.call-modal h2 {
+    margin: 0 0 20px 0;
+    text-align: left;
+    font-weight: 300;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    letter-spacing: 2px;
+    color: #888;
 }
 
 .video-container {
     width: 100%;
-    height: 80%;
+    flex-grow: 1;
     background: black;
     border-radius: 20px;
     overflow: hidden;
-    margin: 20px 0;
+    margin: 0;
+    position: relative;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
 #remoteVideo {

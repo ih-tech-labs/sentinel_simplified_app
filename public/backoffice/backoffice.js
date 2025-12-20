@@ -43,8 +43,15 @@ btnMute.onclick = () => {
     if (localStream) {
         const audioTrack = localStream.getAudioTracks()[0];
         audioTrack.enabled = !audioTrack.enabled;
-        btnMute.textContent = audioTrack.enabled ? '🎤 Mute Mic' : '🎤 Unmute';
-        btnMute.style.background = audioTrack.enabled ? '#444' : '#f44336';
+
+        // Update UI
+        if (audioTrack.enabled) {
+            btnMute.classList.remove('muted');
+            btnMute.innerHTML = '<i class="ph-fill ph-microphone"></i>';
+        } else {
+            btnMute.classList.add('muted');
+            btnMute.innerHTML = '<i class="ph-fill ph-microphone-slash"></i>';
+        }
     }
 };
 
@@ -52,16 +59,24 @@ btnCam.onclick = () => {
     if (localStream) {
         const videoTrack = localStream.getVideoTracks()[0];
         videoTrack.enabled = !videoTrack.enabled;
-        btnCam.textContent = videoTrack.enabled ? '📷 Camera Off' : '📷 Camera On';
-        btnCam.style.background = videoTrack.enabled ? '#444' : '#f44336';
+
+        // Update UI
+        if (videoTrack.enabled) {
+            btnCam.classList.remove('muted'); // Reuse muted style for red state if needed, or just default
+            btnCam.innerHTML = '<i class="ph-fill ph-video-camera"></i>';
+            btnCam.style.color = ''; // reset
+        } else {
+            btnCam.innerHTML = '<i class="ph-fill ph-video-camera-slash"></i>';
+            btnCam.style.color = '#ef5350';
+        }
     }
 };
 
 async function startCall() {
-    btnCall.disabled = true;
+    // Swap buttons
+    btnCall.style.display = 'none';
+    btnHangup.style.display = 'flex';
     btnHangup.disabled = false;
-    btnMute.disabled = false;
-    btnCam.disabled = false;
 
     // Notify Kiosk
     socket.emit('start_call', ROOM_ID);
@@ -102,10 +117,10 @@ async function startCall() {
 }
 
 function endCall() {
-    btnCall.disabled = false;
+    // UI Reset
+    btnCall.style.display = 'flex';
+    btnHangup.style.display = 'none';
     btnHangup.disabled = true;
-    btnMute.disabled = true;
-    btnCam.disabled = true;
 
     socket.emit('end_call', ROOM_ID);
 

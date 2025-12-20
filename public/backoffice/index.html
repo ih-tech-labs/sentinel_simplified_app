@@ -6,49 +6,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sentinel Backoffice</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
 </head>
 
 <body>
-    <div class="container">
-        <header>
-            <h1>Sentinel Backoffice</h1>
-            <div class="status">Kiosk: <span id="kiosk-status" class="offline">Desconectado</span></div>
-        </header>
+    <nav class="navbar">
+        <div class="brand">Sentinel Control</div>
+        <div class="status-badge offline" id="kiosk-status">
+            <i class="ph-fill ph-circle"></i> <span>Desconectado</span>
+        </div>
+    </nav>
 
-        <main>
-            <div class="video-grid">
-                <!-- Local Preview (What Kiosk sees) -->
-                <div class="video-card">
-                    <h3>Mi Cámara</h3>
+    <main class="main-content">
+        <div class="dashboard-grid">
+            <!-- Local Camera Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Mi Cámara</span>
+                    <div class="live-indicator"></div>
+                </div>
+                <div class="video-wrapper">
                     <video id="localVideo" autoplay playsinline muted></video>
                 </div>
+            </div>
 
-                <!-- Remote Audio Viz (Kiosk Audio) - Only Audio from Kiosk -->
-                <div class="video-card">
-                    <h3>Audio Kiosk</h3>
-                    <div id="audio-visualizer">
-                        <div class="bar"></div>
-                        <div class="bar"></div>
-                        <div class="bar"></div>
-                    </div>
-                    <!-- Hidden audio element for playback -->
-                    <audio id="remoteAudio" autoplay></audio>
+            <!-- Remote Audio Viz Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Audio Remoto</span>
+                    <i class="ph ph-waves" style="color: #666;"></i>
                 </div>
+                <div class="video-wrapper">
+                    <div class="audio-viz-container">
+                        <div class="bars">
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                        </div>
+                        <p style="margin-top: 20px; color: #666; font-size: 0.9rem;">Escuchando...</p>
+                    </div>
+                </div>
+                <!-- Hidden audio element for playback -->
+                <audio id="remoteAudio" autoplay></audio>
             </div>
+        </div>
 
-            <div class="controls">
-                <button id="btn-call" class="btn-primary">📞 Iniciar Llamada</button>
-                <button id="btn-hangup" class="btn-danger" disabled>📴 Cortar</button>
-            </div>
+        <!-- Floating Control Bar -->
+        <div class="control-bar">
+            <!-- Cam Toggle -->
+            <button id="btn-cam" class="btn-icon" title="Cámara">
+                <i class="ph-fill ph-video-camera"></i>
+            </button>
 
-            <div class="sub-controls">
-                <button id="btn-mute" class="btn-secondary" disabled>🎤 Mute Mic</button>
-                <button id="btn-cam" class="btn-secondary" disabled>📷 Camera Off</button>
-            </div>
-        </main>
-    </div>
+            <!-- Mic Toggle -->
+            <button id="btn-mute" class="btn-icon" title="Micrófono">
+                <i class="ph-fill ph-microphone"></i>
+            </button>
+
+            <div style="width: 1px; height: 30px; background: #333; margin: 0 10px;"></div>
+
+            <!-- Call Button -->
+            <button id="btn-call" class="btn-icon btn-call">
+                <i class="ph-fill ph-phone-call"></i> Iniciar
+            </button>
+
+            <!-- End Button (Initially Hidden/Disabled styling handled by JS/CSS swapping) -->
+            <button id="btn-hangup" class="btn-icon btn-end" disabled style="display: none;">
+                <i class="ph-fill ph-phone-disconnect"></i>
+            </button>
+        </div>
+    </main>
 
     <script src="backoffice.js"></script>
 </body>
