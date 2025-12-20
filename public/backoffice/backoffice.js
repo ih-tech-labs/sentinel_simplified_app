@@ -43,8 +43,14 @@ btnMute.onclick = () => {
     if (localStream) {
         const audioTrack = localStream.getAudioTracks()[0];
         audioTrack.enabled = !audioTrack.enabled;
-        btnMute.textContent = audioTrack.enabled ? '🎤 Mute Mic' : '🎤 Unmute';
-        btnMute.style.background = audioTrack.enabled ? '#444' : '#f44336';
+
+        if (audioTrack.enabled) {
+            btnMute.className = 'btn-active';
+            btnMute.innerHTML = '🎙️';
+        } else {
+            btnMute.className = 'btn-inactive';
+            btnMute.innerHTML = '🎙️';
+        }
     }
 };
 
@@ -52,8 +58,14 @@ btnCam.onclick = () => {
     if (localStream) {
         const videoTrack = localStream.getVideoTracks()[0];
         videoTrack.enabled = !videoTrack.enabled;
-        btnCam.textContent = videoTrack.enabled ? '📷 Camera Off' : '📷 Camera On';
-        btnCam.style.background = videoTrack.enabled ? '#444' : '#f44336';
+
+        if (videoTrack.enabled) {
+            btnCam.className = 'btn-active';
+            btnCam.innerHTML = '📷';
+        } else {
+            btnCam.className = 'btn-inactive';
+            btnCam.innerHTML = '📷';
+        }
     }
 };
 

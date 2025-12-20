@@ -102,7 +102,10 @@ video#bgVideo {
     display: flex;
     align-items: center;
     gap: 20px;
-    width: 80%;
+    width: 60%;
+    /* Adjusted from 80% */
+    max-width: 600px;
+    /* Limit max width */
     box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
 }
 
