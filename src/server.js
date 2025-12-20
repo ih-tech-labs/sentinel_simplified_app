@@ -34,20 +34,6 @@ io.on('connection', (socket) => {
     socket.on('join', (room) => {
         socket.join(room);
         console.log(`User ${socket.id} joined room: ${room}`);
-
-        // Notify others in room that a peer joined (Simple presence check)
-        // If this is the kiosk joining (we can infer or pass type), notify backoffice
-        // For simplicity, just tell everyone "peer_joined"
-        socket.to(room).emit('peer_joined');
-    });
-
-    // Simple ping-pong for status check
-    socket.on('ping_status', (room) => {
-        socket.to(room).emit('ping_req');
-    });
-
-    socket.on('ping_res', (room) => {
-        socket.to(room).emit('peer_active');
     });
 
     // Signaling for WebRTC

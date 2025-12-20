@@ -20,45 +20,6 @@ const ROOM_ID = 'sentinel-room';
 
 socket.emit('join', ROOM_ID);
 
-// Presence Logic
-function checkStatus() {
-    socket.emit('ping_status', ROOM_ID);
-}
-// Check every 5 seconds
-setInterval(checkStatus, 5000);
-
-socket.on('peer_joined', () => {
-    setKioskOnline(true);
-});
-
-socket.on('peer_active', () => {
-    setKioskOnline(true);
-});
-
-socket.on('disconnect', () => {
-    setKioskOnline(false);
-});
-
-// Auto-reset to offline if no pong received (optional, simplified for now)
-let activityTimeout;
-function setKioskOnline(isOnline) {
-    if (isOnline) {
-        kioskStatus.classList.remove('offline');
-        kioskStatus.classList.add('online');
-        kioskStatus.innerHTML = '<i class="ph-fill ph-circle"></i> <span>Conectado</span>';
-
-        // Reset timeout
-        clearTimeout(activityTimeout);
-        activityTimeout = setTimeout(() => {
-            setKioskOnline(false);
-        }, 10000); // 10s without activity = offline
-    } else {
-        kioskStatus.classList.add('offline');
-        kioskStatus.classList.remove('online');
-        kioskStatus.innerHTML = '<i class="ph-fill ph-circle"></i> <span>Desconectado</span>';
-    }
-}
-
 // Signaling
 socket.on('answer', async (answer) => {
     if (peerConnection) {
@@ -82,15 +43,8 @@ btnMute.onclick = () => {
     if (localStream) {
         const audioTrack = localStream.getAudioTracks()[0];
         audioTrack.enabled = !audioTrack.enabled;
-
-        // Update UI
-        if (audioTrack.enabled) {
-            btnMute.classList.remove('muted');
-            btnMute.innerHTML = '<i class="ph-fill ph-microphone"></i>';
-        } else {
-            btnMute.classList.add('muted');
-            btnMute.innerHTML = '<i class="ph-fill ph-microphone-slash"></i>';
-        }
+        btnMute.textContent = audioTrack.enabled ? '🎤 Mute Mic' : '🎤 Unmute';
+        btnMute.style.background = audioTrack.enabled ? '#444' : '#f44336';
     }
 };
 
@@ -98,24 +52,16 @@ btnCam.onclick = () => {
     if (localStream) {
         const videoTrack = localStream.getVideoTracks()[0];
         videoTrack.enabled = !videoTrack.enabled;
-
-        // Update UI
-        if (videoTrack.enabled) {
-            btnCam.classList.remove('muted'); // Reuse muted style for red state if needed, or just default
-            btnCam.innerHTML = '<i class="ph-fill ph-video-camera"></i>';
-            btnCam.style.color = ''; // reset
-        } else {
-            btnCam.innerHTML = '<i class="ph-fill ph-video-camera-slash"></i>';
-            btnCam.style.color = '#ef5350';
-        }
+        btnCam.textContent = videoTrack.enabled ? '📷 Camera Off' : '📷 Camera On';
+        btnCam.style.background = videoTrack.enabled ? '#444' : '#f44336';
     }
 };
 
 async function startCall() {
-    // Swap buttons
-    btnCall.style.display = 'none';
-    btnHangup.style.display = 'flex';
+    btnCall.disabled = true;
     btnHangup.disabled = false;
+    btnMute.disabled = false;
+    btnCam.disabled = false;
 
     // Notify Kiosk
     socket.emit('start_call', ROOM_ID);
@@ -156,10 +102,10 @@ async function startCall() {
 }
 
 function endCall() {
-    // UI Reset
-    btnCall.style.display = 'flex';
-    btnHangup.style.display = 'none';
+    btnCall.disabled = false;
     btnHangup.disabled = true;
+    btnMute.disabled = true;
+    btnCam.disabled = true;
 
     socket.emit('end_call', ROOM_ID);
 

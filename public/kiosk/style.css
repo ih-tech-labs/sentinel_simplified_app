@@ -32,6 +32,7 @@ video#bgVideo {
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.2);
+    /* Slight tint */
 }
 
 /* UI Layer */
@@ -45,11 +46,12 @@ video#bgVideo {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 60px;
+    padding: 40px;
     box-sizing: border-box;
     transition: filter 0.5s ease;
 }
 
+/* Blur effect when calling */
 .ui-layer.blurred {
     filter: blur(20px);
 }
@@ -68,72 +70,58 @@ video#bgVideo {
 
 #clock-display {
     font-family: 'Outfit', sans-serif;
-    font-size: 13rem;
-    line-height: 0.9;
+    font-size: 12rem;
+    /* Massive iOS style */
+    line-height: 1;
     font-weight: 700;
     color: rgba(255, 255, 255, 0.95);
     text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    /* Gradient text effect if desired, matching iOS screenshot orange? */
+    /* background: linear-gradient(to bottom, #ff5e3a, #ff2a68); */
+    /* -webkit-background-clip: text; */
+    /* -webkit-text-fill-color: transparent; */
+    /* Keeping it white based on user preference from history, or orange from image? 
+       User history says "Time color white". Image shows orange. 
+       I'll stick to white but maybe add an orange tint option later. For now white to match history. */
 }
 
 /* Weather Widget */
 .weather-widget {
-    margin-bottom: 80px;
-    width: 100%;
+    margin-bottom: 50px;
     display: flex;
     justify-content: center;
 }
 
 .glass-panel {
-    background: rgba(40, 40, 40, 0.35);
-    /* Darker, clearly visible */
-    backdrop-filter: blur(25px);
-    -webkit-backdrop-filter: blur(25px);
-    border-radius: 40px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    padding: 30px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 20px 40px;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 10px;
-    width: 40%;
-    /* 40% Width as per visual preference */
-    min-width: 300px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-    color: white;
+    gap: 20px;
+    width: 80%;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
 }
 
 .weather-icon {
-    font-size: 4rem;
-    margin-bottom: 5px;
+    font-size: 3rem;
 }
 
-.weather-main {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+.weather-info {
+    flex-grow: 1;
 }
 
 .temp {
-    font-size: 4rem;
-    font-weight: 700;
-    font-family: 'Outfit', sans-serif;
-    line-height: 1;
+    font-size: 3rem;
+    font-weight: 600;
 }
 
 .desc {
     font-size: 1.2rem;
     opacity: 0.9;
-    font-weight: 500;
-}
-
-.weather-footer {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-top: 15px;
-    width: 100%;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding-top: 15px;
 }
 
 .range {
@@ -142,7 +130,7 @@ video#bgVideo {
 }
 
 .location {
-    font-size: 1.1rem;
+    font-size: 1.5rem;
     font-weight: 600;
 }
 
@@ -153,51 +141,36 @@ video#bgVideo {
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 9999;
+    z-index: 3;
     display: flex;
     justify-content: center;
     align-items: center;
-    background: rgba(0, 0, 0, 0.75);
-    transition: opacity 0.3s ease;
+    background: rgba(0, 0, 0, 0.4);
     opacity: 1;
-    visibility: visible;
+    transition: opacity 0.5s ease;
 }
 
 .call-layer.hidden {
     opacity: 0;
-    visibility: hidden;
     pointer-events: none;
 }
 
 .call-modal {
-    width: 70%;
-    max-width: 600px;
-    height: 70vh;
-    background: #111;
-    border: 1px solid #444;
-    border-radius: 30px;
-    padding: 30px;
-    display: flex;
+    width: 90%;
+    height: 60%;
     flex-direction: column;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
-}
-
-.call-modal h2 {
-    margin: 0 0 20px 0;
-    text-transform: uppercase;
-    font-size: 0.9rem;
-    letter-spacing: 2px;
-    color: #888;
+    justify-content: center;
+    background: rgba(20, 20, 20, 0.85);
+    /* Darker glass for call */
 }
 
 .video-container {
-    flex-grow: 1;
     width: 100%;
+    height: 80%;
     background: black;
     border-radius: 20px;
     overflow: hidden;
-    margin-bottom: 20px;
-    position: relative;
+    margin: 20px 0;
 }
 
 #remoteVideo {
@@ -210,6 +183,12 @@ video#bgVideo {
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 0.9rem;
-    color: #aaa;
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    background: #00ff00;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #00ff00;
 }

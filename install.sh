@@ -8,10 +8,7 @@ echo "Checking dependencies..."
 # Update System
 sudo apt-get update
 
-# Install System Dependencies (Chromium, Fonts, Utils)
-echo "Installing system dependencies..."
-sudo apt-get install -y chromium-browser fontconfig fonts-liberation x11-xserver-utils
-
+# Install Node.js if not present
 if ! command -v node &> /dev/null
 then
     echo "Node.js could not be found, installing..."
@@ -75,15 +72,12 @@ echo "Server Setup Complete."
 # This assumes we are on the RPi Desktop (Pixel/LXDE)
 echo "Configuring Chromium Kiosk Mode..."
 
-# Make start script executable
-chmod +x $(pwd)/start.sh
-
 mkdir -p ~/.config/autostart
 cat <<EOF > ~/.config/autostart/kiosk.desktop
 [Desktop Entry]
 Type=Application
 Name=Sentinel Kiosk
-Exec=$(pwd)/start.sh
+Exec=/usr/bin/chromium-browser --noerrdialogs --disable-infobars --kiosk http://localhost:3000/kiosk/index.html
 X-GNOME-Autostart-enabled=true
 EOF
 

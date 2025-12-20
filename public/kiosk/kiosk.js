@@ -21,8 +21,8 @@ let localStream;
 // --- Clock Logic ---
 function updateClock() {
     const now = new Date();
-    // Format: HH:MM (24h)
-    const timeString = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    // Format: HH:MM
+    const timeString = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
     clockDisplay.textContent = timeString;
 
     // Format: Dayname, DD of montname
@@ -50,11 +50,11 @@ async function updateWeather() {
         const max = Math.round(data.daily.temperature_2m_max[0]);
         const min = Math.round(data.daily.temperature_2m_min[0]);
 
-        // Basic WMO code mapping with Emojis (Stable)
+        // Basic WMO code mapping
         let icon = '☀️';
         let desc = 'Despejado';
 
-        if (code > 0 && code <= 3) { icon = '⛅'; desc = 'Nublado'; }
+        if (code > 0 && code <= 3) { icon = '⛅'; desc = 'Parcialmente Nublado'; }
         else if (code > 40 && code < 60) { icon = '🌫️'; desc = 'Niebla'; }
         else if (code >= 60 && code < 80) { icon = '🌧️'; desc = 'Lluvioso'; }
         else if (code >= 80) { icon = '⛈️'; desc = 'Tormenta'; }
@@ -77,18 +77,13 @@ setInterval(updateWeather, 600000); // 10 mins
 const ROOM_ID = 'sentinel-room';
 socket.emit('join', ROOM_ID);
 
-// 1. Respond to Status Checks (Fixes "Desconectado" on Backoffice)
-socket.on('ping_req', () => {
-    socket.emit('ping_res', ROOM_ID);
-});
-
 socket.on('call_incoming', async () => {
     console.log("Incoming Call...");
 
     // UI Transition
     idleUI.classList.add('blurred');
     callUI.classList.remove('hidden');
-    bgVideo.pause();
+    bgVideo.pause(); // Optional: pause BG video to save resources
 
     // Initialize WebRTC
     await startCall();
