@@ -72,12 +72,15 @@ echo "Server Setup Complete."
 # This assumes we are on the RPi Desktop (Pixel/LXDE)
 echo "Configuring Chromium Kiosk Mode..."
 
+# Make start script executable
+chmod +x $(pwd)/start.sh
+
 mkdir -p ~/.config/autostart
 cat <<EOF > ~/.config/autostart/kiosk.desktop
 [Desktop Entry]
 Type=Application
 Name=Sentinel Kiosk
-Exec=/usr/bin/chromium-browser --noerrdialogs --disable-infobars --kiosk http://localhost:3000/kiosk/index.html
+Exec=$(pwd)/start.sh
 X-GNOME-Autostart-enabled=true
 EOF
 
