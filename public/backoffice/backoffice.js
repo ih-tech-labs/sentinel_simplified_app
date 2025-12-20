@@ -20,6 +20,45 @@ const ROOM_ID = 'sentinel-room';
 
 socket.emit('join', ROOM_ID);
 
+// Presence Logic
+function checkStatus() {
+    socket.emit('ping_status', ROOM_ID);
+}
+// Check every 5 seconds
+setInterval(checkStatus, 5000);
+
+socket.on('peer_joined', () => {
+    setKioskOnline(true);
+});
+
+socket.on('peer_active', () => {
+    setKioskOnline(true);
+});
+
+socket.on('disconnect', () => {
+    setKioskOnline(false);
+});
+
+// Auto-reset to offline if no pong received (optional, simplified for now)
+let activityTimeout;
+function setKioskOnline(isOnline) {
+    if (isOnline) {
+        kioskStatus.classList.remove('offline');
+        kioskStatus.classList.add('online');
+        kioskStatus.innerHTML = '<i class="ph-fill ph-circle"></i> <span>Conectado</span>';
+
+        // Reset timeout
+        clearTimeout(activityTimeout);
+        activityTimeout = setTimeout(() => {
+            setKioskOnline(false);
+        }, 10000); // 10s without activity = offline
+    } else {
+        kioskStatus.classList.add('offline');
+        kioskStatus.classList.remove('online');
+        kioskStatus.innerHTML = '<i class="ph-fill ph-circle"></i> <span>Desconectado</span>';
+    }
+}
+
 // Signaling
 socket.on('answer', async (answer) => {
     if (peerConnection) {
