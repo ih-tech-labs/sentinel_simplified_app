@@ -1,12 +1,14 @@
 const socket = io();
 
-const btnCall = document.getElementById('btn-call');
-const btnHangup = document.getElementById('btn-hangup');
+// UI Elements
+const btnToggle = document.getElementById('btn-toggle-call');
 const btnMute = document.getElementById('btn-mute');
 const btnCam = document.getElementById('btn-cam');
+const btnText = document.querySelector('.btn-text');
 const localVideo = document.getElementById('localVideo');
 const remoteAudio = document.getElementById('remoteAudio');
 const kioskStatus = document.getElementById('kiosk-status');
+const audioPanel = document.querySelector('.audio-panel');
 
 const rtcConfig = {
     iceServers: [
@@ -16,9 +18,24 @@ const rtcConfig = {
 
 let peerConnection;
 let localStream;
+let isCallActive = false;
 const ROOM_ID = 'sentinel-room';
 
+// Init
 socket.emit('join', ROOM_ID);
+
+socket.on('disconnect', () => {
+    kioskStatus.className = 'status-badge offline';
+    kioskStatus.textContent = 'OFFLINE';
+});
+
+// For now, no strict "online" verify event, assume Online if we loaded page or maybe logic later.
+// We can manually set it to online on connect
+socket.on('connect', () => {
+    kioskStatus.className = 'status-badge online';
+    kioskStatus.textContent = 'ONLINE';
+});
+
 
 // Signaling
 socket.on('answer', async (answer) => {
@@ -35,88 +52,148 @@ socket.on('candidate', async (candidate) => {
     }
 });
 
-// Controls
-btnCall.onclick = startCall;
-btnHangup.onclick = endCall;
+// ------------------------------------
+// Handlers
+// ------------------------------------
 
-btnMute.onclick = () => {
-    if (localStream) {
-        const audioTrack = localStream.getAudioTracks()[0];
-        audioTrack.enabled = !audioTrack.enabled;
-        btnMute.textContent = audioTrack.enabled ? '🎤 Mute Mic' : '🎤 Unmute';
-        btnMute.style.background = audioTrack.enabled ? '#444' : '#f44336';
+btnToggle.onclick = () => {
+    if (!isCallActive) {
+        startCall();
+    } else {
+        endCall();
     }
 };
 
-btnCam.onclick = () => {
-    if (localStream) {
-        const videoTrack = localStream.getVideoTracks()[0];
-        videoTrack.enabled = !videoTrack.enabled;
-        btnCam.textContent = videoTrack.enabled ? '📷 Camera Off' : '📷 Camera On';
-        btnCam.style.background = videoTrack.enabled ? '#444' : '#f44336';
-    }
-};
+btnMute.onclick = toggleMute;
+btnCam.onclick = toggleCam;
+
+
+// ------------------------------------
+// Logic
+// ------------------------------------
 
 async function startCall() {
-    btnCall.disabled = true;
-    btnHangup.disabled = false;
-    btnMute.disabled = false;
-    btnCam.disabled = false;
+    isCallActive = true;
+    updateUIState(true);
 
-    // Notify Kiosk
     socket.emit('start_call', ROOM_ID);
 
-    // Setup WebRTC
     peerConnection = new RTCPeerConnection(rtcConfig);
 
-    // Get Media (Audio + Video)
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        // Mute local playback to avoid echo
         localVideo.srcObject = localStream;
+
         localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+        btnMute.disabled = false;
+        btnCam.disabled = false;
+        updateMediaButtons();
+
     } catch (err) {
-        console.error("Error accessing media:", err);
-        alert("Error accessing Camera/Microphone");
+        console.error("Error media", err);
+        alert("No se pudo acceder a Cámara/Micrófono");
         endCall();
         return;
     }
 
-    // Handle Incoming Audio
     peerConnection.ontrack = (event) => {
         if (remoteAudio.srcObject !== event.streams[0]) {
             remoteAudio.srcObject = event.streams[0];
         }
     };
 
-    // ICE
     peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
             socket.emit('candidate', { room: ROOM_ID, candidate: event.candidate });
         }
     };
 
-    // Create Offer
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
     socket.emit('offer', { room: ROOM_ID, offer: offer });
 }
 
 function endCall() {
-    btnCall.disabled = false;
-    btnHangup.disabled = true;
-    btnMute.disabled = true;
-    btnCam.disabled = true;
+    isCallActive = false;
+    updateUIState(false);
 
     socket.emit('end_call', ROOM_ID);
 
-    if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-    }
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
     }
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
     localVideo.srcObject = null;
     remoteAudio.srcObject = null;
+
+    btnMute.disabled = true;
+    btnCam.disabled = true;
+    resetMediaButtons();
+}
+
+// ------------------------------------
+// UI State
+// ------------------------------------
+
+function updateUIState(calling) {
+    if (calling) {
+        btnToggle.className = 'btn-toggle active';
+        btnText.textContent = 'FINALIZAR';
+        audioPanel.classList.add('on-call');
+    } else {
+        btnToggle.className = 'btn-toggle idle';
+        btnText.textContent = 'INICIAR LLAMADA';
+        audioPanel.classList.remove('on-call');
+    }
+}
+
+function toggleMute() {
+    if (localStream) {
+        const audioTrack = localStream.getAudioTracks()[0];
+        audioTrack.enabled = !audioTrack.enabled;
+        updateMediaButtons();
+    }
+}
+
+function toggleCam() {
+    if (localStream) {
+        const videoTrack = localStream.getVideoTracks()[0];
+        videoTrack.enabled = !videoTrack.enabled;
+        updateMediaButtons();
+    }
+}
+
+function updateMediaButtons() {
+    if (!localStream) return;
+    const audioTrack = localStream.getAudioTracks()[0];
+    const videoTrack = localStream.getVideoTracks()[0];
+
+    // Mute
+    if (audioTrack && audioTrack.enabled) {
+        btnMute.className = 'btn-icon active';
+        btnMute.title = "Mutear Micrófono";
+    } else {
+        btnMute.className = 'btn-icon off';
+        btnMute.title = "Activar Micrófono";
+    }
+
+    // Cam
+    if (videoTrack && videoTrack.enabled) {
+        btnCam.className = 'btn-icon active';
+        btnCam.title = "Apagar Cámara";
+    } else {
+        btnCam.className = 'btn-icon off';
+        btnCam.title = "Encender Cámara";
+    }
+}
+
+function resetMediaButtons() {
+    btnMute.className = 'btn-icon';
+    btnCam.className = 'btn-icon';
 }
