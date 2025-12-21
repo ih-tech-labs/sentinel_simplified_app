@@ -28,12 +28,27 @@ app.get('/', (req, res) => {
 });
 
 // Socket.io Signaling
+let kioskSocketId = null;
+
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.on('join', (room) => {
-        socket.join(room);
-        console.log(`User ${socket.id} joined room: ${room}`);
+    // Registration handling
+    socket.on('register', (role) => {
+        if (role === 'kiosk') {
+            kioskSocketId = socket.id;
+            socket.join('kiosk');
+            console.log('Kiosk registered');
+            // Notify all backoffices
+            io.to('backoffice').emit('kiosk_status', { online: true });
+        } else if (role === 'backoffice') {
+            socket.join('backoffice');
+            console.log('Backoffice registered');
+            // Send current status to this new backoffice
+            socket.emit('kiosk_status', { online: !!kioskSocketId });
+        }
+        // Both join the signaling room for calls
+        socket.join('sentinel-room');
     });
 
     // Signaling for WebRTC
@@ -62,6 +77,11 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
+        if (socket.id === kioskSocketId) {
+            kioskSocketId = null;
+            io.to('backoffice').emit('kiosk_status', { online: false });
+            console.log('Kiosk disconnected');
+        }
     });
 });
 

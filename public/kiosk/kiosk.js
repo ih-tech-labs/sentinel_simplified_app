@@ -73,9 +73,9 @@ setInterval(updateWeather, 600000); // 10 mins
 
 // --- Socket & WebRTC Logic ---
 
-// Join Room
+// Join Room / Register
 const ROOM_ID = 'sentinel-room';
-socket.emit('join', ROOM_ID);
+socket.emit('register', 'kiosk');
 
 socket.on('call_incoming', async () => {
     console.log("Incoming Call...");
@@ -107,9 +107,31 @@ async function startCall() {
 
     // Handle incoming stream (Audio + Video from Backoffice)
     peerConnection.ontrack = (event) => {
-        if (remoteVideo.srcObject !== event.streams[0]) {
-            remoteVideo.srcObject = event.streams[0];
+        const stream = event.streams[0];
+        if (remoteVideo.srcObject !== stream) {
+            remoteVideo.srcObject = stream;
             console.log("Received remote stream");
+
+            // Handle Avatar Toggle
+            const videoTrack = stream.getVideoTracks()[0];
+            if (videoTrack) {
+                // Check initial state
+                updateAvatarState(videoTrack.enabled);
+
+                // Audio/Video mute events aren't always reliably sent as metadata on tracks immediately,
+                // but 'mute'/'unmute' events on the track handle the "no data" state.
+                // However, manual toggle usually fires 'enabled' changes.
+                // WebRTC tracks fire 'mute' when source stops sending data (e.g. network or cam disabled).
+
+                videoTrack.onmute = () => { console.log('Track muted'); updateAvatarState(false); };
+                videoTrack.onunmute = () => { console.log('Track unmuted'); updateAvatarState(true); };
+
+                // Also listen for disabled event if browser supports it or just poll?
+                // The most reliable way for "Camera Off" button is the track.enabled property,
+                // but that property change doesn't automatically propagate across PeerConnection in all browsers as an event.
+                // Usually the frame just stops (black).
+                // But generally `mute` is fired when the remote source stops sending.
+            }
         }
     };
 
@@ -137,11 +159,22 @@ async function startCall() {
     });
 }
 
+function updateAvatarState(isEnabled) {
+    const videoContainer = document.querySelector('.video-container');
+    if (isEnabled) {
+        videoContainer.classList.remove('avatar-mode');
+    } else {
+        videoContainer.classList.add('avatar-mode');
+    }
+}
+
 function endCall() {
     // UI Reset
     idleUI.classList.remove('blurred');
     callUI.classList.add('hidden');
     bgVideo.play();
+
+    document.querySelector('.video-container').classList.remove('avatar-mode');
 
     // Close WebRTC
     if (peerConnection) {

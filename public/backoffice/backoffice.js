@@ -22,18 +22,22 @@ let isCallActive = false;
 const ROOM_ID = 'sentinel-room';
 
 // Init
-socket.emit('join', ROOM_ID);
+socket.emit('register', 'backoffice');
 
 socket.on('disconnect', () => {
     kioskStatus.className = 'status-badge offline';
     kioskStatus.textContent = 'OFFLINE';
 });
 
-// For now, no strict "online" verify event, assume Online if we loaded page or maybe logic later.
-// We can manually set it to online on connect
-socket.on('connect', () => {
-    kioskStatus.className = 'status-badge online';
-    kioskStatus.textContent = 'ONLINE';
+// Status Update from Server
+socket.on('kiosk_status', (status) => {
+    if (status.online) {
+        kioskStatus.className = 'status-badge online';
+        kioskStatus.textContent = 'ONLINE';
+    } else {
+        kioskStatus.className = 'status-badge offline';
+        kioskStatus.textContent = 'OFFLINE';
+    }
 });
 
 
