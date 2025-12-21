@@ -109,6 +109,15 @@ btnCam.onclick = toggleCam;
 // Logic
 // ------------------------------------
 
+// Initial State
+let mediaState = {
+    audio: true,
+    video: true
+};
+
+// Initial Sync UI
+updateMediaButtons();
+
 async function startCall() {
     isCallActive = true;
     updateUIState(true);
@@ -120,14 +129,20 @@ async function startCall() {
 
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        // Mute local playback to avoid echo
-        localVideo.srcObject = localStream;
 
+        // Apply Initial State
+        localStream.getAudioTracks()[0].enabled = mediaState.audio;
+        localStream.getVideoTracks()[0].enabled = mediaState.video;
+
+        localVideo.srcObject = localStream;
         localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-        btnMute.disabled = false;
-        btnCam.disabled = false;
-        updateMediaButtons();
+        // Update UI (Avatar local check)
+        updateLocalAvatar(mediaState.video);
+
+        // Sync with Peer immediately
+        socket.emit('media_state_change', { room: ROOM_ID, type: 'audio', enabled: mediaState.audio });
+        socket.emit('media_state_change', { room: ROOM_ID, type: 'video', enabled: mediaState.video });
 
     } catch (err) {
         console.error("Error media", err);
@@ -171,13 +186,11 @@ function endCall() {
     localVideo.srcObject = null;
     remoteAudio.srcObject = null;
 
-    btnMute.disabled = true;
-    btnCam.disabled = true;
-    resetMediaButtons();
+    // resetMediaButtons(); // We do NOT reset state, user setting persists for comfort
 }
 
 // ------------------------------------
-// UI State
+// UI State & Media Toggles
 // ------------------------------------
 
 function updateUIState(calling) {
@@ -191,27 +204,31 @@ function updateUIState(calling) {
 }
 
 function toggleMute() {
+    mediaState.audio = !mediaState.audio;
+
+    // If active call, update track
     if (localStream) {
-        const audioTrack = localStream.getAudioTracks()[0];
-        audioTrack.enabled = !audioTrack.enabled;
-        updateMediaButtons();
-        // Notify Peer
-        socket.emit('media_state_change', { room: ROOM_ID, type: 'audio', enabled: audioTrack.enabled });
+        const track = localStream.getAudioTracks()[0];
+        if (track) track.enabled = mediaState.audio;
+        socket.emit('media_state_change', { room: ROOM_ID, type: 'audio', enabled: mediaState.audio });
     }
+
+    updateMediaButtons();
 }
 
 function toggleCam() {
+    mediaState.video = !mediaState.video;
+
+    // If active call, update track
     if (localStream) {
-        const videoTrack = localStream.getVideoTracks()[0];
-        videoTrack.enabled = !videoTrack.enabled;
-        updateMediaButtons();
+        const track = localStream.getVideoTracks()[0];
+        if (track) track.enabled = mediaState.video;
 
-        // Update Local Avatar
-        updateLocalAvatar(videoTrack.enabled);
-
-        // Notify Peer
-        socket.emit('media_state_change', { room: ROOM_ID, type: 'video', enabled: videoTrack.enabled });
+        updateLocalAvatar(mediaState.video);
+        socket.emit('media_state_change', { room: ROOM_ID, type: 'video', enabled: mediaState.video });
     }
+
+    updateMediaButtons();
 }
 
 function updateLocalAvatar(isEnabled) {
@@ -224,21 +241,19 @@ function updateLocalAvatar(isEnabled) {
 }
 
 function updateMediaButtons() {
-    if (!localStream) return;
-    const audioTrack = localStream.getAudioTracks()[0];
-    const videoTrack = localStream.getVideoTracks()[0];
+    // Buttons reflect the INTENDED state (mediaState), not just the track state
 
     // Mute
-    if (audioTrack && audioTrack.enabled) {
-        btnMute.className = 'btn-icon active';
+    if (mediaState.audio) {
+        btnMute.className = 'btn-icon active'; // Normal/Active
         btnMute.title = "Mutear Micrófono";
     } else {
-        btnMute.className = 'btn-icon off';
+        btnMute.className = 'btn-icon off'; // Red/Off
         btnMute.title = "Activar Micrófono";
     }
 
     // Cam
-    if (videoTrack && videoTrack.enabled) {
+    if (mediaState.video) {
         btnCam.className = 'btn-icon active';
         btnCam.title = "Apagar Cámara";
     } else {
@@ -248,6 +263,7 @@ function updateMediaButtons() {
 }
 
 function resetMediaButtons() {
-    btnMute.className = 'btn-icon';
-    btnCam.className = 'btn-icon';
+    // No longer used in endCall to preserve preference
+    mediaState = { audio: true, video: true };
+    updateMediaButtons();
 }
