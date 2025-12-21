@@ -131,7 +131,6 @@ function endCall() {
     }
     localVideo.srcObject = null;
     remoteAudio.srcObject = null;
-    document.querySelector('.video-wrapper').classList.remove('active');
 
     btnMute.disabled = true;
     btnCam.disabled = true;
@@ -166,10 +165,6 @@ function toggleCam() {
     if (localStream) {
         const videoTrack = localStream.getVideoTracks()[0];
         videoTrack.enabled = !videoTrack.enabled;
-
-        // Notify Receiver
-        socket.emit('camera_state', { enabled: videoTrack.enabled });
-
         updateMediaButtons();
     }
 }

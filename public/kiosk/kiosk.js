@@ -76,17 +76,6 @@ setInterval(updateWeather, 600000); // 10 mins
 // Join Room
 const ROOM_ID = 'sentinel-room';
 socket.emit('join', ROOM_ID);
-socket.emit('register', 'kiosk');
-
-socket.on('camera_state', (state) => {
-    // state = { enabled: boolean }
-    const avatar = document.getElementById('avatar');
-    if (state.enabled) {
-        avatar.classList.add('hidden');
-    } else {
-        avatar.classList.remove('hidden');
-    }
-});
 
 socket.on('call_incoming', async () => {
     console.log("Incoming Call...");

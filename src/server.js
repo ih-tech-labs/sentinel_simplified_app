@@ -14,41 +14,26 @@ const io = new Server(server, {
 });
 
 const PORT = 3000;
-let isKioskOnline = false;
 
 // Middleware
 app.use(cors());
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Routes
+// Redirect root to kiosk or offer a selection page? 
+// For now, let's keep it simple: /kiosk and /backoffice paths are handled by static files if they exist,
+// but we might want explicit routes.
 app.get('/', (req, res) => {
     res.send('Sentinel Server Running. Go to /kiosk or /backoffice');
 });
 
 // Socket.io Signaling
 io.on('connection', (socket) => {
-    // console.log('User connected:', socket.id);
-
-    // Registration to track presence
-    socket.on('register', (type) => {
-        if (type === 'kiosk') {
-            socket.join('kiosk_room');
-            isKioskOnline = true;
-            socket.type = 'kiosk';
-            // Notify backoffice
-            io.to('backoffice_room').emit('kiosk_status', 'online');
-            console.log("Kiosk Registered (Online)");
-        } else if (type === 'backoffice') {
-            socket.join('backoffice_room');
-            socket.type = 'backoffice';
-            // Send current status immediately
-            socket.emit('kiosk_status', isKioskOnline ? 'online' : 'offline');
-            console.log("Backoffice Registered");
-        }
-    });
+    console.log('User connected:', socket.id);
 
     socket.on('join', (room) => {
         socket.join(room);
+        console.log(`User ${socket.id} joined room: ${room}`);
     });
 
     // Signaling for WebRTC
@@ -64,30 +49,21 @@ io.on('connection', (socket) => {
         socket.to(data.room).emit('candidate', data.candidate);
     });
 
-    // Events
-    socket.on('camera_state', (state) => {
-        // Broadcast to room (Sentinel room)
-        socket.to('sentinel-room').emit('camera_state', state);
-    });
-
     // Call State Management
     socket.on('start_call', (room) => {
+        console.log(`Call started in room ${room}`);
         io.to(room).emit('call_incoming');
     });
 
     socket.on('end_call', (room) => {
+        console.log(`Call ended in room ${room}`);
         io.to(room).emit('call_ended');
     });
 
     socket.on('disconnect', () => {
-        if (socket.type === 'kiosk') {
-            isKioskOnline = false;
-            io.to('backoffice_room').emit('kiosk_status', 'offline');
-            console.log("Kiosk Disconnected");
-        }
+        console.log('User disconnected:', socket.id);
     });
 });
-
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Sentinel Server running on port ${PORT}`);
