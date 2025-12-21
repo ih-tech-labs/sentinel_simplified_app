@@ -165,6 +165,10 @@ function toggleCam() {
     if (localStream) {
         const videoTrack = localStream.getVideoTracks()[0];
         videoTrack.enabled = !videoTrack.enabled;
+
+        // Notify Receiver
+        socket.emit('camera_state', { enabled: videoTrack.enabled });
+
         updateMediaButtons();
     }
 }
