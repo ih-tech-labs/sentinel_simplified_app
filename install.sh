@@ -13,14 +13,16 @@ if ! command -v node &> /dev/null
 then
     echo "Node.js could not be found, installing..."
     curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-    sudo apt-get install -y nodejs ffmpeg
+    sudo apt-get install -y nodejs
 else
     echo "Node.js is already installed."
 fi
 
 # Install Git if not present (optional if we are just copying files)
 # sudo apt-get install -y git
+
+echo "Installing System Dependencies..."
+sudo apt-get install -y ffmpeg
 
 # Create Project Directory if it doesn't exist
 # We assume the script is in the project root or we are moving it there.
@@ -59,6 +61,7 @@ then
     echo "PM2 installed successfully."
     pm2 startup
     pm2 start src/server.js --name sentinel-server
+    pm2 start src/stream.js --name sentinel-stream
     pm2 save
 else
     echo "WARNING: PM2 installation failed. Starting server directly in background."

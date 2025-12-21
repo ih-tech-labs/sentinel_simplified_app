@@ -162,190 +162,55 @@ video {
 /* RTSP Panel */
 .rtsp-panel {
     flex: 2;
-    /* Equal width to video panel? User said cancel audio panel. Make them equal? 
-                Usually CCTV is 16:9. Let's make both Main Cam and RTSP big. 
-                Grid container logic needs adjustment if they are side-by-side or stacked?
-                Assuming side-by-side. */
-    display: flex;
-    flex-direction: column;
+    /* Increased size to match video panel if possible, or keep 1? User asked for video. Let's make it equal. */
+    position: relative;
+    background: #000;
 }
 
-.rtsp-panel .panel-header {
+.rtsp-wrapper {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    /* Centering */
+    justify-content: center;
+    background: #000;
+}
+
+#video-canvas {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    /* Keep aspect ratio */
+}
+
+.rtsp-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #666;
+    font-size: 0.8rem;
+}
+
+/* Config Button */
+.panel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
 .btn-icon-small {
-    background: none;
+    background: transparent;
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
-    transition: all 0.2s;
+    font-size: 1rem;
+    padding: 2px;
 }
 
 .btn-icon-small:hover {
     color: var(--accent-color);
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.rtsp-wrapper {
-    flex-grow: 1;
-    background: #000;
-    position: relative;
-    overflow: hidden;
-}
-
-#rtsp-canvas {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    /* or contain based on preference */
-    display: block;
-}
-
-/* Modal */
-.modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    backdrop-filter: blur(5px);
-}
-
-.modal.hidden {
-    display: none;
-}
-
-.modal-content {
-    background: #1e1e1e;
-    border: 1px solid var(--border-color);
-    padding: 30px;
-    border-radius: 16px;
-    width: 400px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-}
-
-.modal-content h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 500;
-}
-
-.modal-content input {
-    background: #252525;
-    border: 1px solid #333;
-    padding: 12px;
-    border-radius: 8px;
-    color: white;
-    font-size: 0.9rem;
-    outline: none;
-}
-
-.modal-content input:focus {
-    border-color: var(--text-secondary);
-}
-
-.modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-}
-
-.btn-text {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 0.9rem;
-    padding: 8px 16px;
-}
-
-.btn-text:hover {
-    color: white;
-}
-
-.btn-primary-small {
-    background: var(--text-primary);
-    color: var(--bg-color);
-    border: none;
-    padding: 8px 20px;
-    border-radius: 20px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.btn-primary-small:hover {
-    background: white;
-}
-
-/* Audio Panel */
-.audio-panel {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-#audio-visualizer {
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-}
-
-.bar {
-    width: 6px;
-    height: 10px;
-    background: #333;
-    border-radius: 4px;
-    transition: height 0.1s ease;
-}
-
-.on-call .bar {
-    background: var(--success-color);
-    animation: pulse 1s infinite;
-}
-
-.on-call .bar:nth-child(2) {
-    animation-delay: 0.1s;
-}
-
-.on-call .bar:nth-child(3) {
-    animation-delay: 0.2s;
-}
-
-.on-call .bar:nth-child(4) {
-    animation-delay: 0.3s;
-}
-
-.on-call .bar:nth-child(5) {
-    animation-delay: 0.4s;
-}
-
-@keyframes pulse {
-
-    0%,
-    100% {
-        height: 20px;
-        opacity: 0.5;
-    }
-
-    50% {
-        height: 60%;
-        opacity: 1;
-    }
 }
 
 /* FOOTER / CONTROLS */

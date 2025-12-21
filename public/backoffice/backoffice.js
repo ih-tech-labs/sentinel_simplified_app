@@ -4,25 +4,13 @@ const socket = io();
 const btnToggle = document.getElementById('btn-toggle-call');
 const btnMute = document.getElementById('btn-mute');
 const btnCam = document.getElementById('btn-cam');
-const btnToggle = document.getElementById('btn-toggle-call');
-const btnMute = document.getElementById('btn-mute');
-const btnCam = document.getElementById('btn-cam');
 const btnText = document.querySelector('.btn-text');
 const localVideo = document.getElementById('localVideo');
 const remoteAudio = document.getElementById('remoteAudio');
 const kioskStatus = document.getElementById('kiosk-status');
-// RTSP Elements
-const rtspCanvas = document.getElementById('rtsp-canvas');
-const btnConfigRtsp = document.getElementById('btn-config-rtsp');
-const configModal = document.getElementById('config-modal');
-const rtspUrlInput = document.getElementById('rtsp-url-input');
-const btnSaveConfig = document.getElementById('btn-save-config');
-const btnCancelConfig = document.getElementById('btn-cancel-config');
+const canvas = document.getElementById('video-canvas');
+const rtspStatus = document.getElementById('rtsp-status');
 
-let jsmpegPlayer = null;
-const RTSP_WS_PORT = 9999;
-
-// RTC Config
 const rtcConfig = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' }
@@ -33,59 +21,40 @@ let peerConnection;
 let localStream;
 let isCallActive = false;
 const ROOM_ID = 'sentinel-room';
+let player = null;
 
-// Init
+// Init Socket
 socket.emit('register', 'backoffice');
-socket.emit('get_rtsp_config'); // Request current RTSP URL
 
-// ------------------------------------
-// RTSP / Socket Handlers
-// ------------------------------------
-
-socket.on('rtsp_config', (url) => {
-    if (url) {
-        initPlayer(); // Player connects to fixed WS port, URL is handled by server proxy
-        rtspUrlInput.value = url;
-    }
-});
-
-socket.on('rtsp_updated', (url) => {
-    console.log("RTSP URL Updated, reloading player...");
-    if (jsmpegPlayer) {
-        jsmpegPlayer.destroy();
-        jsmpegPlayer = null;
-    }
-    // Give server a moment to restart stream
-    setTimeout(initPlayer, 2000);
-    rtspUrlInput.value = url;
-});
-
+// Init JSMPEG Player
 function initPlayer() {
-    if (jsmpegPlayer) return;
-    const wsUrl = `ws://${window.location.hostname}:${RTSP_WS_PORT}`;
-    console.log("Connecting JSMpeg to " + wsUrl);
-    jsmpegPlayer = new JSMpeg.Player(wsUrl, {
-        canvas: rtspCanvas,
+    const url = `ws://${window.location.hostname}:9999`;
+    rtspStatus.textContent = "Conectando al video...";
+
+    if (player) {
+        player.destroy();
+    }
+
+    player = new JSMpeg.Player(url, {
+        canvas: canvas,
         autoplay: true,
-        audio: false // We use RTSP only for video usually
+        audio: false, // Video only from RTSP usually, or check source
+        onSourceEstablished: () => {
+            rtspStatus.style.display = 'none';
+        },
+        onSourceCompleted: () => {
+            rtspStatus.textContent = "Desconectado";
+            rtspStatus.style.display = 'block';
+        }
     });
 }
 
-// Modal Handlers
-btnConfigRtsp.onclick = () => {
-    configModal.classList.remove('hidden');
-};
+// Start player on load
+initPlayer();
 
-btnCancelConfig.onclick = () => {
-    configModal.classList.add('hidden');
-};
-
-btnSaveConfig.onclick = () => {
-    const newUrl = rtspUrlInput.value.trim();
-    if (newUrl) {
-        socket.emit('update_rtsp_url', newUrl);
-        configModal.classList.add('hidden');
-    }
+// Config Button
+document.getElementById('btn-config-rtsp').onclick = () => {
+    alert("Para cambiar la URL del RTSP, edita la variable GLOBAL en 'src/stream.js' en la Raspberry Pi y reinicia el servicio.");
 };
 
 socket.on('disconnect', () => {

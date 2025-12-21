@@ -5,6 +5,7 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
+    "stream": "node src/stream.js",
     "dev": "nodemon src/server.js"
   },
   "dependencies": {
