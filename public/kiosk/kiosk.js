@@ -83,10 +83,15 @@ socket.on('call_incoming', async () => {
     // UI Transition
     idleUI.classList.add('blurred');
     callUI.classList.remove('hidden');
+
+    // Default to Avatar Mode (Avoid black screen)
+    document.querySelector('.video-container').classList.add('avatar-mode');
+
     bgVideo.pause(); // Optional: pause BG video to save resources
 
     // Initialize WebRTC
     await startCall();
+    document.querySelector('.video-container').classList.add('avatar-mode');
 });
 
 socket.on('call_ended', () => {
@@ -157,14 +162,14 @@ async function startCall() {
             console.error("Error adding IceCandidate", e);
         }
     });
-}
 
-// Explicit State Sync (Global Listener)
-socket.on('remote_media_state', (data) => {
-    if (data.type === 'video') {
-        updateAvatarState(data.enabled);
-    }
-});
+    // Explicit State Sync
+    socket.on('remote_media_state', (data) => {
+        if (data.type === 'video') {
+            updateAvatarState(data.enabled);
+        }
+    });
+}
 
 function updateAvatarState(isEnabled) {
     const videoContainer = document.querySelector('.video-container');
