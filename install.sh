@@ -13,7 +13,8 @@ if ! command -v node &> /dev/null
 then
     echo "Node.js could not be found, installing..."
     curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-    sudo apt-get install -y nodejs
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt-get install -y nodejs ffmpeg
 else
     echo "Node.js is already installed."
 fi

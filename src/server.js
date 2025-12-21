@@ -3,6 +3,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const cors = require('cors');
+const Stream = require('node-rtsp-stream');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -14,6 +16,46 @@ const io = new Server(server, {
 });
 
 const PORT = 3000;
+const RTSP_FilePath = path.join(__dirname, '../config.json');
+
+// RTSP Stream Handler
+let stream = null;
+
+function startStream(url) {
+    if (stream) {
+        stream.stop();
+    }
+
+    if (!url || !url.startsWith('rtsp')) {
+        console.log("Invalid RTSP URL, skipping stream start.");
+        return;
+    }
+
+    console.log(`Starting RTSP Stream for: ${url}`);
+
+    stream = new Stream({
+        name: 'sentinel-stream',
+        streamUrl: url,
+        wsPort: 9999,
+        ffmpegOptions: { // options ffmpeg flags
+            '-stats': '', // an option with no neccessary value uses a blank string
+            '-r': 30 // options with required values specify the value after the key
+        }
+    });
+}
+
+// Load initial config
+let currentConfig = {};
+if (fs.existsSync(RTSP_FilePath)) {
+    try {
+        currentConfig = JSON.parse(fs.readFileSync(RTSP_FilePath, 'utf8'));
+        // Delay start slightly to ensure port availability
+        setTimeout(() => startStream(currentConfig.rtspUrl), 2000);
+    } catch (e) {
+        console.error("Error loading config.json", e);
+    }
+}
+
 
 // Middleware
 app.use(cors());
@@ -49,6 +91,27 @@ io.on('connection', (socket) => {
         }
         // Both join the signaling room for calls
         socket.join('sentinel-room');
+    });
+
+    // RTSP Configuration
+    socket.on('update_rtsp_url', (newUrl) => {
+        console.log(`Updating RTSP URL to: ${newUrl}`);
+        currentConfig.rtspUrl = newUrl;
+
+        // Save to file
+        fs.writeFile(RTSP_FilePath, JSON.stringify(currentConfig, null, 4), (err) => {
+            if (err) console.error("Error saving config", err);
+        });
+
+        // Restart Stream
+        startStream(newUrl);
+
+        // Notify Backoffice
+        io.to('backoffice').emit('rtsp_updated', newUrl);
+    });
+
+    socket.on('get_rtsp_config', () => {
+        socket.emit('rtsp_config', currentConfig.rtspUrl);
     });
 
     // Signaling for WebRTC
