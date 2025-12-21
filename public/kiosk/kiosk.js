@@ -157,14 +157,14 @@ async function startCall() {
             console.error("Error adding IceCandidate", e);
         }
     });
-
-    // Explicit State Sync
-    socket.on('remote_media_state', (data) => {
-        if (data.type === 'video') {
-            updateAvatarState(data.enabled);
-        }
-    });
 }
+
+// Explicit State Sync (Global Listener)
+socket.on('remote_media_state', (data) => {
+    if (data.type === 'video') {
+        updateAvatarState(data.enabled);
+    }
+});
 
 function updateAvatarState(isEnabled) {
     const videoContainer = document.querySelector('.video-container');
