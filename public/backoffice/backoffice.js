@@ -54,7 +54,7 @@ initPlayer();
 
 // Config Button
 document.getElementById('btn-config-rtsp').onclick = () => {
-    alert("Para cambiar la URL del RTSP, edita la variable GLOBAL en 'src/stream.js' en la Raspberry Pi y reinicia el servicio.");
+    alert("Para cambiar la URL del RTSP, edita la variable GLOBAL en 'src/stream.js' en el servidor y reinicia el servicio.");
 };
 
 socket.on('disconnect', () => {
@@ -112,6 +112,7 @@ btnCam.onclick = toggleCam;
 async function startCall() {
     isCallActive = true;
     updateUIState(true);
+    document.querySelector('.idle-placeholder').classList.add('hidden'); // Hide idle screen
 
     socket.emit('start_call', ROOM_ID);
 
@@ -155,6 +156,7 @@ async function startCall() {
 function endCall() {
     isCallActive = false;
     updateUIState(false);
+    document.querySelector('.idle-placeholder').classList.remove('hidden'); // Show idle screen
 
     socket.emit('end_call', ROOM_ID);
 
