@@ -17,6 +17,7 @@ const rtcConfig = {
 
 let peerConnection;
 let localStream;
+let remoteVideoEnabled = true; // Default assumption
 
 // --- Clock Logic ---
 function updateClock() {
@@ -120,16 +121,26 @@ async function startCall() {
             // Handle Avatar Toggle
             const videoTrack = stream.getVideoTracks()[0];
             if (videoTrack) {
-                // Check initial state
-                updateAvatarState(videoTrack.enabled);
+                // Do not force state here; trust the socket 'remote_media_state' event for initial state.
+                // This prevents 'black screen' if track is enabled but sending black frames (cam off).
 
                 // Audio/Video mute events aren't always reliably sent as metadata on tracks immediately,
                 // but 'mute'/'unmute' events on the track handle the "no data" state.
                 // However, manual toggle usually fires 'enabled' changes.
                 // WebRTC tracks fire 'mute' when source stops sending data (e.g. network or cam disabled).
 
-                videoTrack.onmute = () => { console.log('Track muted'); updateAvatarState(false); };
-                videoTrack.onunmute = () => { console.log('Track unmuted'); updateAvatarState(true); };
+                videoTrack.onmute = () => {
+                    console.log('Track muted');
+                    updateAvatarState(false);
+                };
+
+                videoTrack.onunmute = () => {
+                    console.log('Track unmuted');
+                    // Only hide avatar if we logically believe video is ON
+                    if (remoteVideoEnabled) {
+                        updateAvatarState(true);
+                    }
+                };
 
                 // Also listen for disabled event if browser supports it or just poll?
                 // The most reliable way for "Camera Off" button is the track.enabled property,
@@ -166,6 +177,7 @@ async function startCall() {
     // Explicit State Sync
     socket.on('remote_media_state', (data) => {
         if (data.type === 'video') {
+            remoteVideoEnabled = data.enabled;
             updateAvatarState(data.enabled);
         }
     });
