@@ -75,6 +75,12 @@ io.on('connection', (socket) => {
         io.to(room).emit('call_ended');
     });
 
+    // Media State Sync (Explicit)
+    socket.on('media_state_change', (data) => {
+        // data = { type: 'video' | 'audio', enabled: boolean, room: '...' }
+        socket.to(data.room).emit('remote_media_state', data);
+    });
+
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
         if (socket.id === kioskSocketId) {

@@ -127,19 +127,35 @@ video {
     transform: scaleX(-1);
 }
 
-.placeholder-text {
+/* Avatar Styling */
+.avatar-placeholder {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #333;
-    font-size: 0.9rem;
-    z-index: 0;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #111;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
 }
 
-video[srcObject]+.placeholder-text {
-    /* Hide text when video exists */
-    display: none;
+.avatar-icon {
+    width: 100px;
+    height: 100px;
+    color: #444;
+    /* Dark minimalist gray */
+}
+
+.video-wrapper.avatar-mode .avatar-placeholder {
+    opacity: 1;
+}
+
+.video-wrapper.avatar-mode video {
+    opacity: 0;
 }
 
 

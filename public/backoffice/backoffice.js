@@ -162,6 +162,8 @@ function toggleMute() {
         const audioTrack = localStream.getAudioTracks()[0];
         audioTrack.enabled = !audioTrack.enabled;
         updateMediaButtons();
+        // Notify Peer
+        socket.emit('media_state_change', { room: ROOM_ID, type: 'audio', enabled: audioTrack.enabled });
     }
 }
 
@@ -170,6 +172,21 @@ function toggleCam() {
         const videoTrack = localStream.getVideoTracks()[0];
         videoTrack.enabled = !videoTrack.enabled;
         updateMediaButtons();
+
+        // Update Local Avatar
+        updateLocalAvatar(videoTrack.enabled);
+
+        // Notify Peer
+        socket.emit('media_state_change', { room: ROOM_ID, type: 'video', enabled: videoTrack.enabled });
+    }
+}
+
+function updateLocalAvatar(isEnabled) {
+    const videoWrapper = document.querySelector('.video-wrapper');
+    if (isEnabled) {
+        videoWrapper.classList.remove('avatar-mode');
+    } else {
+        videoWrapper.classList.add('avatar-mode');
     }
 }
 
