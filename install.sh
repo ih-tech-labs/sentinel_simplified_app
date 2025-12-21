@@ -77,7 +77,7 @@ cat <<EOF > ~/.config/autostart/kiosk.desktop
 [Desktop Entry]
 Type=Application
 Name=Sentinel Kiosk
-Exec=/usr/bin/chromium-browser --noerrdialogs --disable-infobars --kiosk http://localhost:3000/kiosk/index.html
+Exec=/usr/bin/chromium-browser --noerrdialogs --disable-infobars --disable-features=Translate --check-for-update-interval=31536000 --kiosk http://localhost:3000/kiosk/index.html
 X-GNOME-Autostart-enabled=true
 EOF
 

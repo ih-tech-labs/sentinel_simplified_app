@@ -131,6 +131,7 @@ function endCall() {
     }
     localVideo.srcObject = null;
     remoteAudio.srcObject = null;
+    document.querySelector('.video-wrapper').classList.remove('active');
 
     btnMute.disabled = true;
     btnCam.disabled = true;
