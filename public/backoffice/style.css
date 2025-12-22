@@ -29,40 +29,7 @@ body {
 }
 
 /* HEADER */
-header {
-    height: 80px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border-color);
-}
 
-.brand {
-    font-size: 1.2rem;
-    font-weight: 600;
-    letter-spacing: 2px;
-    color: var(--accent-color);
-}
-
-.status-badge {
-    font-size: 0.75rem;
-    font-weight: 500;
-    padding: 4px 10px;
-    border-radius: 12px;
-    letter-spacing: 0.5px;
-}
-
-.status-badge.online {
-    background: rgba(52, 199, 89, 0.1);
-    color: var(--success-color);
-    border: 1px solid rgba(52, 199, 89, 0.2);
-}
-
-.status-badge.offline {
-    background: rgba(255, 59, 48, 0.1);
-    color: var(--danger-color);
-    border: 1px solid rgba(255, 59, 48, 0.2);
-}
 
 
 /* MAIN CONTENT */
@@ -263,10 +230,105 @@ main {
     background: #000;
 }
 
+/* HEADER & GLOBAL CONTROLS */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 30px;
+}
+
+.brand-area {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.brand {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--text-primary);
+}
+
+.global-controls {
+    display: flex;
+    gap: 15px;
+}
+
+/* Call Button - NOW GREEN/BLUE */
+.btn-call {
+    flex: 1;
+    background: #007AFF;
+    /* iOS Blue */
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+
+.btn-call:hover {
+    background: #0062cc;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+}
+
+/* Round Buttons (Microphone/Camera) */
+.btn-icon,
+.btn-round {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.2rem;
+    transition: all 0.2s;
+}
+
+.btn-icon.active,
+.btn-round.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-icon.off,
+.btn-round.off {
+    background: var(--danger-color);
+    color: white;
+    border: 1px solid var(--danger-color);
+}
+
+/* Modal Controls Layout */
 .call-controls {
     margin-top: 20px;
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0 20px;
+}
+
+.media-toggles {
+    display: flex;
+    gap: 15px;
+}
+
+.spacer {
+    flex: 1;
 }
 
 .btn-danger {
@@ -278,7 +340,16 @@ main {
     font-weight: bold;
     cursor: pointer;
     font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
+
+.btn-danger .icon {
+    transform: rotate(135deg);
+}
+
+/* Phone down icon */
 
 .btn-danger:hover {
     background: #ff5e55;

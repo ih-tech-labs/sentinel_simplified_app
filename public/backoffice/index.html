@@ -15,8 +15,16 @@
     <div class="container">
         <!-- Header -->
         <header>
-            <div class="brand">SENTINEL</div>
-            <div class="status-badge offline" id="kiosk-status">OFFLINE</div>
+            <div class="brand-area">
+                <div class="brand">SENTINEL</div>
+                <div class="status-badge offline" id="kiosk-status">OFFLINE</div>
+            </div>
+
+            <!-- Global Media Controls (Pre-Call settings) -->
+            <div class="global-controls">
+                <button id="btn-global-mute" class="btn-icon active" title="Micrófono Activo">🎤</button>
+                <button id="btn-global-cam" class="btn-icon active" title="Cámara Activa">📷</button>
+            </div>
         </header>
 
         <!-- Main Content -->
@@ -67,7 +75,7 @@
                 </div>
             </div>
 
-            <!-- Active Call Modal (Hidden by default) -->
+            <!-- Active Call Modal -->
             <div id="call-modal" class="hidden">
                 <div class="call-content">
                     <h2>En llamada con: <span id="call-target-name">...</span></h2>
@@ -75,7 +83,17 @@
                     <audio id="remoteAudio" autoplay></audio>
 
                     <div class="call-controls">
-                        <button id="btn-end-call" class="btn-danger">FINALIZAR</button>
+                        <!-- In-Call Media Toggles -->
+                        <div class="media-toggles">
+                            <button id="btn-modal-mute" class="btn-round active">🎤</button>
+                            <button id="btn-modal-cam" class="btn-round active">📷</button>
+                        </div>
+
+                        <div class="spacer"></div>
+
+                        <button id="btn-end-call" class="btn-danger">
+                            <span class="icon">📞</span> FINALIZAR
+                        </button>
                     </div>
                 </div>
             </div>
