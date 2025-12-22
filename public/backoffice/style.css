@@ -362,10 +362,14 @@ header {
     gap: 20px;
 }
 
+/* Brand / Logo */
 .brand {
-    font-size: 1.5rem;
+    font-family: 'Outfit', sans-serif;
     font-weight: 700;
+    font-size: 1.5rem;
     letter-spacing: 2px;
+    margin-top: 10px;
+    /* Slight adjustment downwards */
     color: var(--text-primary);
 }
 
