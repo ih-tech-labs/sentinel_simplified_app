@@ -3,6 +3,10 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const cors = require('cors');
+const crypto = require('crypto');
+const bodyParser = require('body-parser');
+require('dotenv').config();
+const verkadaConfig = require('./verkadaConfig');
 
 const app = express();
 const server = http.createServer(app);
@@ -17,12 +21,97 @@ const PORT = 3000;
 
 // Middleware
 app.use(cors());
+
+// Body Parser for Verkada Signature Validation (RAW BODY NEEDED)
+app.use(bodyParser.json({
+    verify: (req, res, buf) => {
+        req.rawBody = buf;
+    }
+}));
+
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Routes
-// Redirect root to kiosk or offer a selection page? 
-// For now, let's keep it simple: /kiosk and /backoffice paths are handled by static files if they exist,
-// but we might want explicit routes.
+// -------------------------------------------------------------------
+// VERKADA WEBHOOK VALIDATION
+// -------------------------------------------------------------------
+function validateVerkadaWebhook(req, res, next) {
+    console.log("--> [HTTP] Webhook Request Received from IP:", req.ip);
+
+    const signatureHeader = req.headers['verkada-signature'];
+    const sharedSecret = process.env.VERKADA_SHARED_SECRET;
+
+    if (!signatureHeader || !sharedSecret) {
+        console.warn('Verkada Webhook: Missing Signature or Secret');
+        return res.status(400).send('Missing Signature or Secret');
+    }
+
+    try {
+        const [timestampStr, signature] = signatureHeader.split('|');
+        const timestamp = parseInt(timestampStr, 10);
+        const now = Math.floor(Date.now() / 1000);
+
+        // 1. Replay Attack Protection (60s tolerance)
+        if (Math.abs(now - timestamp) > 60) {
+            console.warn('Verkada Webhook: Expired Signature');
+            return res.status(403).send('Expired Signature');
+        }
+
+        // 2. HMAC Validation
+        const timestampBuffer = Buffer.from(timestampStr, 'utf-8');
+        const separatorBuffer = Buffer.from('|', 'utf-8');
+        const signedPayload = Buffer.concat([req.rawBody, separatorBuffer, timestampBuffer]);
+
+        const expectedSignature = crypto
+            .createHmac('sha256', sharedSecret)
+            .update(signedPayload)
+            .digest('hex');
+
+        if (!crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'))) {
+            console.warn('Verkada Webhook: Invalid Signature');
+            return res.status(401).send('Invalid Signature');
+        }
+
+        next(); // Valid!
+    } catch (err) {
+        console.error('Verkada Webhook Error:', err);
+        return res.status(500).send('Webhook validation error');
+    }
+}
+
+// -------------------------------------------------------------------
+// ROUTES
+// -------------------------------------------------------------------
+
+app.post('/verkada-webhook', validateVerkadaWebhook, (req, res) => {
+    const data = req.body.data || {};
+    const cameraId = data.device_id;
+    const webhookType = req.body.webhook_type;
+
+    // DEBUG: Print full payload
+    console.log("\n--- [WEBHOOK RECEIVED] ---");
+    console.log("Type:", webhookType);
+    console.log("Camera ID:", cameraId);
+    console.log("Full Payload:", JSON.stringify(req.body, null, 2));
+    console.log("--------------------------\n");
+
+    const camConfig = verkadaConfig[cameraId];
+
+    if (camConfig) {
+        console.log(`-> Alarm Triggered for: ${camConfig.name}`);
+
+        io.to('backoffice').emit('alarm_trigger', {
+            camera: camConfig.name,
+            cameraId: cameraId,
+            triggerVideo: camConfig.triggerVideo,
+            sound: camConfig.sound,
+            details: `Evento detectado: ${webhookType}`
+        });
+    } else {
+        console.log(`-> Camera not configured in Sentinel (ID: ${cameraId}), ignoring alarm.`);
+    }
+
+    res.status(200).send({ status: 'ok' });
+});
 app.get('/', (req, res) => {
     res.send('Sentinel Server Running. Go to /kiosk or /backoffice');
 });

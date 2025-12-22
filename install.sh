@@ -24,6 +24,58 @@ fi
 echo "Installing System Dependencies..."
 sudo apt-get install -y ffmpeg
 
+# CLOUDFLARE INSTALLATION
+echo "Installing Cloudflared..."
+if ! command -v cloudflared &> /dev/null
+then
+    ARCH=$(dpkg --print-architecture)
+    if [ "$ARCH" = "arm64" ]; then
+        URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb"
+    else
+        URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-armhf.deb"
+    fi
+    curl -L --output cloudflared.deb $URL
+    sudo dpkg -i cloudflared.deb
+    rm cloudflared.deb
+else
+    echo "Cloudflared is already installed."
+fi
+
+# CLOUDFLARE CONFIGURATION RESTORE
+# Moves credentials from user home (if manually authed) to system folder
+echo "Checking for Cloudflare credentials in home..."
+if [ -d "$HOME/.cloudflared" ]; then
+    echo "Found local credentials. Moving to /etc/cloudflared (Requires SUDO)..."
+    sudo mkdir -p /etc/cloudflared
+    sudo cp -n $HOME/.cloudflared/*.json /etc/cloudflared/ 2>/dev/null || true
+    
+    # Create Config for Sentinel if not exists
+    if [ ! -f "/etc/cloudflared/config.yml" ]; then
+        echo "Creating config.yml..."
+        # Finds the first JSON file to use as credential
+        CRED_FILE=$(ls /etc/cloudflared/*.json | head -n 1)
+        if [ -n "$CRED_FILE" ]; then
+            UUID=$(basename "$CRED_FILE" .json)
+            sudo tee /etc/cloudflared/config.yml > /dev/null <<EOF
+tunnel: $UUID
+credentials-file: $CRED_FILE
+ingress:
+  - hostname: sentinel.ihtechlabs.com
+    service: http://localhost:3000
+  - service: http_status:404
+EOF
+            echo "Config created for Tunnel ID: $UUID"
+        fi
+    fi
+
+    # Install Service
+    echo "Installing Cloudflared Service..."
+    sudo cloudflared service install 2>/dev/null || true
+    sudo systemctl restart cloudflared
+else
+    echo "No local credentials found. Please run 'cloudflared tunnel login' manually if this is a fresh install."
+fi
+
 # Create Project Directory if it doesn't exist
 # We assume the script is in the project root or we are moving it there.
 # For this script, let's assume we are INSIDE the project folder already (e.g. pulled from git or copied)
