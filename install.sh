@@ -113,7 +113,6 @@ then
     echo "PM2 installed successfully."
     pm2 startup
     pm2 start src/server.js --name sentinel-server
-    pm2 start src/stream.js --name sentinel-stream
     pm2 save
 else
     echo "WARNING: PM2 installation failed. Starting server directly in background."

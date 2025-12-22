@@ -1,28 +1,34 @@
 const Stream = require('node-rtsp-stream');
 
-// ==========================================
-// CONFIGURACIÓN GLOBAL
-// Pegar aquí la URL del RTSP de la cámara
-// ==========================================
-const RTSP_URL = 'rtsp://admin:Admin0962@dc58d86505200da3b7675766a03f287a.14.camera.verkada-lan.com:8554/standard';
-// ==========================================
+// Función para iniciar todos los streams configurados
+function startStreams(verkadaConfig) {
+    console.log("--> [STREAM] Inicializando Multi-Streams...");
 
-const STREAM_PORT = 9999;
+    // Convertir objeto config a array
+    const cameras = Object.values(verkadaConfig);
 
-console.log(`Iniciando Bridge RTSP...`);
-console.log(`Fuente: ${RTSP_URL}`);
-console.log(`Puerto WebSocket: ${STREAM_PORT}`);
+    cameras.forEach(cam => {
+        if (!cam.rtspUrl || !cam.streamPort) {
+            console.warn(`[STREAM] Salteando ${cam.name}: Falta URL o Puerto`);
+            return;
+        }
 
-const stream = new Stream({
-    name: 'sentinel-stream',
-    streamUrl: RTSP_URL,
-    wsPort: STREAM_PORT,
-    ffmpegOptions: {
-        '-stats': '',
-        '-r': 24, // 24fps es suficiente para cine/video
-        '-s': '640x360', // 16:9 ratio correcto
-        '-rtsp_transport': 'tcp' // CLAVE: Usa TCP para evitar perdida de paquetes (pixelado gris)
-    }
-});
+        console.log(`--> [STREAM] Iniciando ${cam.name} en puerto ${cam.streamPort}`);
 
-console.log("Stream activo. Esperando conexiones en ws://<IP>:" + STREAM_PORT);
+        new Stream({
+            name: `stream-${cam.id}`,
+            streamUrl: cam.rtspUrl,
+            wsPort: cam.streamPort,
+            ffmpegOptions: {
+                '-stats': '',
+                '-r': 24,
+                '-s': '640x360',
+                '-rtsp_transport': 'tcp' // CLAVE: Usa TCP para evitar perdida de paquetes
+            }
+        });
+    });
+
+    console.log(`--> [STREAM] ${cameras.length} streams procesados.`);
+}
+
+module.exports = { startStreams };
