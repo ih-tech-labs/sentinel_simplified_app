@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Configuration
-URL="http://localhost:3000/kiosk/index.html"
-SCRIPTS_DIR="/home/pi/SentinelApp/scripts"
+URL="http://localhost:3000/kiosk/?id=admin"
+SCRIPTS_DIR="/home/develop/sentinel_simplified_app/scripts"
 GPIO_SCRIPT="$SCRIPTS_DIR/GPIO_control.py"
 
 # Colors
@@ -27,7 +27,7 @@ function turn_on_lights() {
 
 # 0. Ensure Server is Running (PM2)
 # If systemd failed, this tries to bring it up.
-pm2 resurrect 2>/dev/null || pm2 start /home/pi/SentinelApp/src/server.js --name "sentinel-server"
+pm2 resurrect 2>/dev/null || pm2 start /home/develop/sentinel_simplified_app/src/server.js --name "sentinel-server"
 
 # 1. Turn on Lights
 turn_on_lights
@@ -50,4 +50,4 @@ sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' ~/.config/chromium/Defaul
 # --incognito: Don't save history/cache (Optional, good for kiosk)
 echo -e "${GREEN}🚀 Iniciando Sentinel Kiosk...${NC}"
 
-chromium-browser --kiosk --noerrdialogs --disable-infobars --check-for-update-interval=31536000 --disable-translate --no-first-run --fast --fast-start --disable-features=TranslateUI --disk-cache-dir=/dev/null --disk-cache-size=1 --start-maximized --disable-session-crashed-bubble "$URL"
+chromium --kiosk --noerrdialogs --disable-infobars --check-for-update-interval=31536000 --disable-translate --no-first-run --fast --fast-start --disable-features=TranslateUI --disk-cache-dir=/dev/null --disk-cache-size=1 --start-maximized --disable-session-crashed-bubble "$URL"

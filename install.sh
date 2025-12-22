@@ -123,6 +123,14 @@ fi
 
 echo "Server Setup Complete."
 
+# Configuration
+INSTALL_DIR="/home/develop/sentinel_simplified_app"
+AUTOSTART_DIR="/home/develop/.config/autostart"
+
+echo -e "${YELLOW}📂 Directorio de instalación: $INSTALL_DIR${NC}"
+
+# ... (Previous dependencies install sections remain the same) ...
+
 # 5. Setup Scripts & Assets
 echo -e "${YELLOW}🛠️  Configurando Scripts...${NC}"
 mkdir -p "$INSTALL_DIR/scripts"
@@ -130,9 +138,11 @@ mkdir -p "$INSTALL_DIR/scripts"
 # Move GPIO Script if exists in assets
 if [ -f "$INSTALL_DIR/public/assets/GPIO_control.py" ]; then
     cp "$INSTALL_DIR/public/assets/GPIO_control.py" "$INSTALL_DIR/scripts/"
-    echo -e "${GREEN}   ✅ GPIO Control script movido correctamete.${NC}"
+    echo -e "${GREEN}   ✅ GPIO Control script movido correctamente.${NC}"
+elif [ -f "$INSTALL_DIR/scripts/GPIO_control.py" ]; then
+     echo -e "${GREEN}   ✅ GPIO Control script ya existe en scripts/.${NC}"
 else
-    echo -e "${YELLOW}   ⚠️  GPIO_control.py no encontrado en public/assets.${NC}"
+    echo -e "${YELLOW}   ⚠️  GPIO_control.py no encontrado.${NC}"
 fi
 
 # Make startup script executable
@@ -141,7 +151,6 @@ chmod +x "$INSTALL_DIR/start_kiosk.sh"
 
 # 6. Configure Autostart (LXDE)
 echo -e "${YELLOW}🖥️  Configurando Autostart...${NC}"
-AUTOSTART_DIR="/home/pi/.config/autostart"
 mkdir -p "$AUTOSTART_DIR"
 
 cat > "$AUTOSTART_DIR/sentinel.desktop" <<EOL
@@ -156,14 +165,11 @@ EOL
 
 echo -e "${GREEN}   ✅ Autostart configurado para ejecutar start_kiosk.sh${NC}"
 
-# 7. Configure PM2 for Server (Optional, but recommended)
+# 7. Configure PM2 for Server
 echo -e "${YELLOW}⚙️  Configurando PM2...${NC}"
-# pm2 startup is interactive, we just save current list
 cd "$INSTALL_DIR"
 pm2 start src/server.js --name "sentinel-server"
 pm2 save
-# User needs to run 'pm2 startup' manually usually, or we can try:
-# env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u pi --hp /home/pi
 
 echo -e "${BLUE}==============================================${NC}"
 echo -e "${GREEN}   INSTALACIÓN COMPLETADA EXITOSAMENTE 🚀${NC}"
