@@ -227,6 +227,9 @@ window.selectKiosk = (id) => {
     document.getElementById(`call-ui-${id}`).classList.remove('hidden');
     document.getElementById(`footer-${id}`).style.display = 'none'; // Hide idle user controls
 
+    // DISABLE ALL CALL BUTTONS (Mutual Exclusion)
+    document.querySelectorAll('.btn-call').forEach(btn => btn.disabled = true);
+
     startCall(id);
 };
 
@@ -264,6 +267,9 @@ window.endCall = () => {
     // Clear Local Video Src
     const localVidRef = document.getElementById(`localVideo-${id}`);
     if (localVidRef) localVidRef.srcObject = null;
+
+    // RE-ENABLE ALL CALL BUTTONS
+    document.querySelectorAll('.btn-call').forEach(btn => btn.disabled = false);
 }
 
 // Initialize UI
