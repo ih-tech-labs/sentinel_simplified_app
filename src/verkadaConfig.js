@@ -13,7 +13,7 @@ const verkadaConfig = {
         name: "Administración",
         triggerVideo: true,
         sound: true,
-        allowedEvents: ['alert_rule_line_crossing'],
+        allowedEvents: ['alert_rule_line_crossing', 'alert_rule_motion'],
         rtspUrl: "rtsp://admin:Admin0962@dc58d86505200da3b7675766a03f287a.14.camera.verkada-lan.com:8554/standard",
         streamPort: 9998
     },
@@ -24,6 +24,7 @@ const verkadaConfig = {
         name: "House Tenis",
         triggerVideo: true,
         sound: true,
+        allowedEvents: ['alert_rule_line_crossing', 'alert_rule_motion'],
         rtspUrl: "rtsp://admin:Admin0962@2f206bcb1ad24144a5192eaf72758885.5.camera.verkada-lan.com:8554/standard",
         streamPort: 9999
     }

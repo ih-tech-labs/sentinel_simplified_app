@@ -177,4 +177,22 @@ else
 fi
 
 
+
+# KIOSK AUTOSTART CONFIGURATION
+echo "Configuring Kiosk Autostart..."
+AUTOSTART_DIR="/home/develop/.config/autostart"
+PROJECT_DIR="/home/develop/sentinel_simplified_app"
+mkdir -p "$AUTOSTART_DIR"
+
+cat > "$AUTOSTART_DIR/sentinel.desktop" <<EOL
+[Desktop Entry]
+Type=Application
+Name=Sentinel Kiosk
+Exec=$PROJECT_DIR/start_kiosk.sh
+X-GNOME-Autostart-enabled=true
+EOL
+
+chmod +x "$AUTOSTART_DIR/sentinel.desktop"
+echo -e "${GREEN}✅ Kiosk autostart configured.${NC}"
+
 echo "Server Setup Complete."
