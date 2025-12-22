@@ -42,16 +42,19 @@ main {
 }
 
 /* GRID & CARDS */
+/* Main Grid Layout - Maximize Space */
 .grid-container.multi-kiosk {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    /* Two equal columns */
-    gap: 30px;
+    gap: 20px;
     width: 100%;
-    max-width: 1200px;
-    height: 60vh;
+    max-width: 1600px;
+    /* Increased max-width */
+    height: 75vh;
+    /* Increased height */
 }
 
+/* Kiosk Card */
 .kiosk-card {
     background: var(--panel-bg);
     border-radius: 16px;
@@ -61,6 +64,7 @@ main {
     overflow: hidden;
     position: relative;
     transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .kiosk-card.active-alarm {

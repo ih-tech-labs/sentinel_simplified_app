@@ -186,36 +186,68 @@ function setBtnState(btnId, isActive) {
 // BIND EVENTS
 document.getElementById('btn-global-mute').onclick = toggleMute;
 document.getElementById('btn-global-cam').onclick = toggleCam;
-document.getElementById('btn-modal-mute').onclick = toggleMute;
-document.getElementById('btn-modal-cam').onclick = toggleCam;
 
 
-// OPEN CALL MODAL
+// ==========================================
+// CALL MANAGEMENT (FACETIME UX)
+// ==========================================
+
+// TRIGGERED BY "LLAMAR" BUTTON
 window.selectKiosk = (id) => {
+    // If already calling THIS kiosk, end call
+    if (activeCallTarget === id) {
+        endCall();
+        return;
+    }
+
+    // If calling ANOTHER kiosk, end that first (optional, but safer)
+    if (activeCallTarget && activeCallTarget !== id) {
+        endCall();
+        // Small delay might be needed or just proceed
+    }
+
     activeCallTarget = id;
-    const name = id === 'admin' ? "Administración" : "House Tenis";
 
-    document.getElementById('call-target-name').textContent = name;
-    document.getElementById('call-modal').classList.remove('hidden');
+    // 1. UI: Move PiP to this card
+    const card = document.getElementById(`card-${id}`);
+    const videoWrapper = card.querySelector('.video-wrapper');
+    const pipContainer = document.getElementById('pip-container');
 
-    // Start WebRTC immediatly
+    videoWrapper.appendChild(pipContainer);
+    pipContainer.classList.remove('hidden');
+
+    // 2. UI: Update Button to "FINALIZAR"
+    updateCallButton(id, true);
+
+    // 3. Start Logic
     startCall(id);
 };
+
+function updateCallButton(id, isCallActive) {
+    // Reset ALL call buttons first
+    document.querySelectorAll('.btn-call').forEach(btn => {
+        btn.classList.remove('active-call');
+        btn.innerHTML = '<span class="icon">📞</span> LLAMAR';
+        btn.onclick = () => window.selectKiosk(btn.closest('.kiosk-card').id.split('-')[1]);
+    });
+
+    if (isCallActive) {
+        const btn = document.querySelector(`#card-${id} .btn-call`);
+        if (btn) {
+            btn.classList.add('active-call');
+            btn.innerHTML = '<span class="icon">📞</span> FINALIZAR';
+            // Onclick logic strictly handled by selectKiosk toggle check
+        }
+    }
+}
 
 // TEST ALARM
 window.testAlarm = (id) => {
     socket.emit('test_alarm', id);
 };
 
-// END CALL ACTION
-document.getElementById('btn-end-call').onclick = () => {
-    endCall();
-    document.getElementById('call-modal').classList.add('hidden');
-};
-
 // Initialize UI
 updateButtonUI();
-
 
 // ==========================================
 // 4. WEBRTC LOGIC (ROUTING)
@@ -226,7 +258,7 @@ let rtcConfig = {
 };
 
 async function startCall(targetId) {
-    const ROOM_ID = `kiosk-${targetId}`; // Connect to specific room
+    const ROOM_ID = `kiosk-${targetId}`;
     console.log(`Starting call to: ${ROOM_ID}`);
 
     socket.emit('start_call', ROOM_ID);
@@ -234,18 +266,26 @@ async function startCall(targetId) {
     peerConnection = new RTCPeerConnection(rtcConfig);
 
     try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        // Reuse localStream if possible or get new
+        if (!localStream) {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        }
 
-        // Apply Initial Media State
+        // Apply current media state immediately
         localStream.getAudioTracks().forEach(track => track.enabled = mediaState.audio);
         localStream.getVideoTracks().forEach(track => track.enabled = mediaState.video);
 
-        document.getElementById('localVideo').srcObject = localStream;
+        // Set to PiP Video
+        const localVidEl = document.getElementById('localVideo');
+        localVidEl.srcObject = localStream;
+        // Ensure play (sometimes needed after moving DOM)
+        localVidEl.play().catch(e => { });
 
         localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
     } catch (err) {
         console.error("Error media", err);
         alert("No se pudo acceder a Cámara/Micrófono");
+        endCall(); // Reset UI
         return;
     }
 
@@ -258,6 +298,7 @@ async function startCall(targetId) {
         }
     };
 
+    // ... setup ICE, Offer ...
     peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
             socket.emit('candidate', { room: ROOM_ID, candidate: event.candidate });
@@ -268,10 +309,11 @@ async function startCall(targetId) {
     await peerConnection.setLocalDescription(offer);
     socket.emit('offer', { room: ROOM_ID, offer: offer });
 
-    // Signaling Handlers (Specific to this call instance)
-    setupSignaling(ROOM_ID);
+    // Sync initial media state to Kiosk
+    socket.emit('media_state_change', { room: ROOM_ID, ...mediaState });
 }
 
+// Signaling Handlers (Specific to this call instance)
 function setupSignaling(roomId) {
     // Note: In V3 we had global listeners. In V4 we might get crosstalk if we don't handle rooms.
     // The server emits 'answer' to the room => but backoffice is in 'backoffice' room?
@@ -327,34 +369,36 @@ socket.on('candidate', async (candidate) => {
 });
 
 function endCall() {
+    const wasActive = activeCallTarget;
     activeCallTarget = null;
+
+    // UI Reset
+    const pipContainer = document.getElementById('pip-container');
+    pipContainer.classList.add('hidden');
+    // Move back to body or leave it (hidden is enough)
+
+    updateCallButton(wasActive, false);
+
     const remoteAudio = document.getElementById('remoteAudio');
+    if (remoteAudio) remoteAudio.srcObject = null;
 
-    // Send End to current room?
-    // We don't store the current room ID globally easily, but we can reconstruct or ignore.
-    // Kiosk listens for 'call_ended' on 'sentinel-room' probably?
-    // Kiosk Client: socket.on('call_ended'). 
-    // Server: socket.on('end_call', (room) => io.to(room).emit('call_ended'))
-
-    // We should send end to 'kiosk-admin' or 'sentinel-room'.
-    // Safe bet: transmit to the specific kiosk room
-    // But we need to know WHICH one was active.
-    // If we rely on stored ID:
-    if (peerConnection) {
-        // Find which one was connected? 
-        // Logic simplification: Just emit to 'sentinel-room' to close all calls?
-        // Or better:
-        socket.emit('end_call', 'sentinel-room'); // Kiosks listen here too? 
+    if (activeCallTarget) {
+        // Should have sent end_call
+    }
+    // We already cleared activeCallTarget, so let's send to the specific room if we knew it
+    if (wasActive) {
+        socket.emit('end_call', `kiosk-${wasActive}`);
     }
 
     if (localStream) {
+        // We might want to keep localStream alive for snappy next call? 
+        // For now, stop it to release cam light
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
     }
+
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
     }
-
-    if (remoteAudio) remoteAudio.srcObject = null;
 }
