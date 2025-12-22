@@ -85,11 +85,12 @@ function validateVerkadaWebhook(req, res, next) {
 app.post('/verkada-webhook', validateVerkadaWebhook, (req, res) => {
     const data = req.body.data || {};
     const cameraId = data.device_id;
-    const webhookType = req.body.webhook_type;
+    // Intentar obtener el tipo de evento de data.event_type, si no existe usar webhook_type
+    const eventType = data.event_type || req.body.webhook_type || 'unknown';
 
     // DEBUG: Print full payload
     console.log("\n--- [WEBHOOK RECEIVED] ---");
-    console.log("Type:", webhookType);
+    console.log("Event Type:", eventType);
     console.log("Camera ID:", cameraId);
     console.log("Full Payload:", JSON.stringify(req.body, null, 2));
     console.log("--------------------------\n");
@@ -97,6 +98,12 @@ app.post('/verkada-webhook', validateVerkadaWebhook, (req, res) => {
     const camConfig = verkadaConfig[cameraId];
 
     if (camConfig) {
+        // FILTER LOGIC
+        if (camConfig.allowedEvents && !camConfig.allowedEvents.includes(eventType)) {
+            console.log(`-> Ignored Event '${eventType}' for camera '${camConfig.name}' (Filter Active)`);
+            return res.status(200).send({ status: 'ignored', reason: 'filtered by type' });
+        }
+
         console.log(`-> Alarm Triggered for: ${camConfig.name}`);
 
         io.to('backoffice').emit('alarm_trigger', {
@@ -104,7 +111,7 @@ app.post('/verkada-webhook', validateVerkadaWebhook, (req, res) => {
             cameraId: cameraId,
             triggerVideo: camConfig.triggerVideo,
             sound: camConfig.sound,
-            details: `Evento detectado: ${webhookType}`
+            details: `Evento: ${eventType}`
         });
     } else {
         console.log(`-> Camera not configured in Sentinel (ID: ${cameraId}), ignoring alarm.`);
