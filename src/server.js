@@ -99,9 +99,13 @@ app.post('/verkada-webhook', validateVerkadaWebhook, (req, res) => {
 
     if (camConfig) {
         // FILTER LOGIC
-        if (camConfig.allowedEvents && !camConfig.allowedEvents.includes(eventType)) {
-            console.log(`-> Ignored Event '${eventType}' for camera '${camConfig.name}' (Filter Active)`);
-            return res.status(200).send({ status: 'ignored', reason: 'filtered by type' });
+        if (camConfig.allowedEvents) {
+            console.log(`[DEBUG] Filter Check > Event: '${eventType}' | Allowed:`, camConfig.allowedEvents);
+
+            if (!camConfig.allowedEvents.includes(eventType)) {
+                console.log(`-> 🚫 Ignored Event '${eventType}' for camera '${camConfig.name}' (Not in allowed list)`);
+                return res.status(200).send({ status: 'ignored', reason: 'filtered by type' });
+            }
         }
 
         console.log(`-> Alarm Triggered for: ${camConfig.name}`);
