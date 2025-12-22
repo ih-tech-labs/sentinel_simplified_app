@@ -133,7 +133,7 @@ app.get('/', (req, res) => {
 });
 
 // Socket.io Signaling
-let kioskSocketId = null;
+let connectedKiosks = new Map(); // Map<SocketID, KioskID>
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
@@ -145,6 +145,9 @@ io.on('connection', (socket) => {
         const kioskId = (typeof data === 'object') ? data.id : null;
 
         if (role === 'kiosk') {
+            // Track this Kiosk
+            connectedKiosks.set(socket.id, kioskId);
+
             // Join specific room for this Kiosk (e.g. 'kiosk-admin')
             const roomName = `kiosk-${kioskId}`;
             socket.join(roomName);
@@ -156,6 +159,11 @@ io.on('connection', (socket) => {
         } else if (role === 'backoffice') {
             socket.join('backoffice');
             console.log('Backoffice registered');
+
+            // Send status of ALL currently connected Kiosks to this new Backoffice
+            connectedKiosks.forEach((kId, sId) => {
+                socket.emit('kiosk_status', { id: kId, online: true });
+            });
 
             // TEST ALARM: Now requires target
             socket.on('test_alarm', (targetId) => { // targetId = 'admin' or 'tenis'
@@ -211,8 +219,17 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
-        // Note: Simple disconnect logic for now, tough to track multiple kiosks without map
-        // V4.0 TODO: Implement Map<SocketID, KioskID> for accurate offline tracking
+
+        // Handle Kiosk Disconnect
+        if (connectedKiosks.has(socket.id)) {
+            const kId = connectedKiosks.get(socket.id);
+            console.log(`Kiosk disconnected: ${kId}`);
+
+            // Notify Backoffice
+            io.to('backoffice').emit('kiosk_status', { id: kId, online: false });
+
+            connectedKiosks.delete(socket.id);
+        }
     });
 });
 

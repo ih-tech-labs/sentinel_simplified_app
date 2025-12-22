@@ -118,6 +118,68 @@ socket.on('alarm_trigger', (data) => {
 // 3. UI ACTIONS
 // ==========================================
 
+// ==========================================
+// 3. UI ACTIONS & MEDIA CONTROLS
+// ==========================================
+
+let mediaState = {
+    audio: true,
+    video: true
+};
+
+function toggleMute() {
+    mediaState.audio = !mediaState.audio;
+    updateMediaState();
+}
+
+function toggleCam() {
+    mediaState.video = !mediaState.video;
+    updateMediaState();
+}
+
+function updateMediaState() {
+    // 1. Update UI Buttons
+    updateButtonUI();
+
+    // 2. Update Active Stream (if exists)
+    if (localStream) {
+        localStream.getAudioTracks().forEach(track => track.enabled = mediaState.audio);
+        localStream.getVideoTracks().forEach(track => track.enabled = mediaState.video);
+    }
+}
+
+function updateButtonUI() {
+    // Global Buttons
+    setBtnState('btn-global-mute', mediaState.audio);
+    setBtnState('btn-global-cam', mediaState.video);
+
+    // Modal Buttons
+    setBtnState('btn-modal-mute', mediaState.audio);
+    setBtnState('btn-modal-cam', mediaState.video);
+}
+
+function setBtnState(btnId, isActive) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+
+    if (isActive) {
+        btn.classList.add('active');
+        btn.classList.remove('off');
+        btn.title = btnId.includes('mute') ? "Silenciar" : "Apagar Cámara";
+    } else {
+        btn.classList.remove('active');
+        btn.classList.add('off');
+        btn.title = btnId.includes('mute') ? "Activar Micrófono" : "Encender Cámara";
+    }
+}
+
+// BIND EVENTS
+document.getElementById('btn-global-mute').onclick = toggleMute;
+document.getElementById('btn-global-cam').onclick = toggleCam;
+document.getElementById('btn-modal-mute').onclick = toggleMute;
+document.getElementById('btn-modal-cam').onclick = toggleCam;
+
+
 // OPEN CALL MODAL
 window.selectKiosk = (id) => {
     activeCallTarget = id;
@@ -141,6 +203,9 @@ document.getElementById('btn-end-call').onclick = () => {
     document.getElementById('call-modal').classList.add('hidden');
 };
 
+// Initialize UI
+updateButtonUI();
+
 
 // ==========================================
 // 4. WEBRTC LOGIC (ROUTING)
@@ -160,6 +225,11 @@ async function startCall(targetId) {
 
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+
+        // Apply Initial Media State
+        localStream.getAudioTracks().forEach(track => track.enabled = mediaState.audio);
+        localStream.getVideoTracks().forEach(track => track.enabled = mediaState.video);
+
         document.getElementById('localVideo').srcObject = localStream;
 
         localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));

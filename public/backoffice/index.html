@@ -17,15 +17,7 @@
         <header>
             <div class="brand">SENTINEL</div>
 
-            <!-- Global Media Controls (Pre-Call settings) -->
-            <div class="global-controls">
-                <button id="btn-global-mute" class="btn-ctrl active" title="Micrófono Activo">
-                    <span class="ctrl-icon">🎤</span>
-                </button>
-                <button id="btn-global-cam" class="btn-ctrl active" title="Cámara Activa">
-                    <span class="ctrl-icon">📷</span>
-                </button>
-            </div>
+
         </header>
 
         <!-- Main Content -->
@@ -74,6 +66,24 @@
                         <button class="btn-test-mini" onclick="testAlarm('tenis')">🔔 Test</button>
                     </div>
                 </div>
+                <!-- Global Media Controls (Moved from Header) -->
+                <div class="global-controls">
+                    <button id="btn-global-mute" class="btn-ctrl active" title="Silenciar">
+                        <!-- SVG Mic -->
+                        <svg class="ctrl-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 2.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                            <path
+                                d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                        </svg>
+                    </button>
+                    <button id="btn-global-cam" class="btn-ctrl active" title="Cámara">
+                        <!-- SVG Cam -->
+                        <svg class="ctrl-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M15 8v8H5V8h10m1-2H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4V7c0-.55-.45-1-1-1z" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <!-- Active Call Modal -->
@@ -87,10 +97,18 @@
                         <!-- In-Call Media Toggles -->
                         <div class="media-toggles">
                             <button id="btn-modal-mute" class="btn-ctrl active">
-                                <span class="ctrl-icon">🎤</span>
+                                <svg class="ctrl-icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path
+                                        d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 2.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                                    <path
+                                        d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                                </svg>
                             </button>
                             <button id="btn-modal-cam" class="btn-ctrl active">
-                                <span class="ctrl-icon">📷</span>
+                                <svg class="ctrl-icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path
+                                        d="M15 8v8H5V8h10m1-2H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4V7c0-.55-.45-1-1-1z" />
+                                </svg>
                             </button>
                         </div>
 
