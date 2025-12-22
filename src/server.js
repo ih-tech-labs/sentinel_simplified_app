@@ -85,8 +85,8 @@ function validateVerkadaWebhook(req, res, next) {
 app.post('/verkada-webhook', validateVerkadaWebhook, (req, res) => {
     const data = req.body.data || {};
     const cameraId = data.device_id;
-    // Intentar obtener el tipo de evento de data.event_type, si no existe usar webhook_type
-    const eventType = data.event_type || req.body.webhook_type || 'unknown';
+    // Intentar obtener el tipo de evento de data.notification_type (Verkada) o data.event_type
+    const eventType = data.notification_type || data.event_type || req.body.webhook_type || 'unknown';
 
     // DEBUG: Print full payload
     console.log("\n--- [WEBHOOK RECEIVED] ---");
