@@ -123,19 +123,51 @@ fi
 
 echo "Server Setup Complete."
 
-# Kiosk Mode Setup
-# This assumes we are on the RPi Desktop (Pixel/LXDE)
-echo "Configuring Chromium Kiosk Mode..."
+# 5. Setup Scripts & Assets
+echo -e "${YELLOW}🛠️  Configurando Scripts...${NC}"
+mkdir -p "$INSTALL_DIR/scripts"
 
-mkdir -p ~/.config/autostart
-cat <<EOF > ~/.config/autostart/kiosk.desktop
+# Move GPIO Script if exists in assets
+if [ -f "$INSTALL_DIR/public/assets/GPIO_control.py" ]; then
+    cp "$INSTALL_DIR/public/assets/GPIO_control.py" "$INSTALL_DIR/scripts/"
+    echo -e "${GREEN}   ✅ GPIO Control script movido correctamete.${NC}"
+else
+    echo -e "${YELLOW}   ⚠️  GPIO_control.py no encontrado en public/assets.${NC}"
+fi
+
+# Make startup script executable
+chmod +x "$INSTALL_DIR/start_kiosk.sh"
+
+
+# 6. Configure Autostart (LXDE)
+echo -e "${YELLOW}🖥️  Configurando Autostart...${NC}"
+AUTOSTART_DIR="/home/pi/.config/autostart"
+mkdir -p "$AUTOSTART_DIR"
+
+cat > "$AUTOSTART_DIR/sentinel.desktop" <<EOL
 [Desktop Entry]
 Type=Application
 Name=Sentinel Kiosk
-Exec=/usr/bin/chromium-browser --noerrdialogs --disable-infobars --kiosk http://localhost:3000/kiosk/index.html
-X-GNOME-Autostart-enabled=true
-EOF
+Exec=$INSTALL_DIR/start_kiosk.sh
+StartupNotify=false
+Terminal=false
+Hidden=false
+EOL
 
-echo "Installation Complete! Rebooting in 5 seconds..."
-# sleep 5
-# sudo reboot
+echo -e "${GREEN}   ✅ Autostart configurado para ejecutar start_kiosk.sh${NC}"
+
+# 7. Configure PM2 for Server (Optional, but recommended)
+echo -e "${YELLOW}⚙️  Configurando PM2...${NC}"
+# pm2 startup is interactive, we just save current list
+cd "$INSTALL_DIR"
+pm2 start src/server.js --name "sentinel-server"
+pm2 save
+# User needs to run 'pm2 startup' manually usually, or we can try:
+# env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u pi --hp /home/pi
+
+echo -e "${BLUE}==============================================${NC}"
+echo -e "${GREEN}   INSTALACIÓN COMPLETADA EXITOSAMENTE 🚀${NC}"
+echo -e "${BLUE}==============================================${NC}"
+echo -e "Para finalizar:"
+echo -e "1. Ejecuta: ${YELLOW}pm2 startup${NC} y sigue las instrucciones para que el servidor inicie al boot."
+echo -e "2. Reinicia la Raspberry Pi: ${YELLOW}sudo reboot${NC}"
