@@ -156,6 +156,16 @@ function updateButtonUI() {
     // Modal Buttons
     setBtnState('btn-modal-mute', mediaState.audio);
     setBtnState('btn-modal-cam', mediaState.video);
+
+    // Logo Overlay
+    const logo = document.getElementById('logo-overlay');
+    if (logo) {
+        if (!mediaState.video) {
+            logo.classList.remove('hidden');
+        } else {
+            logo.classList.add('hidden');
+        }
+    }
 }
 
 function setBtnState(btnId, isActive) {

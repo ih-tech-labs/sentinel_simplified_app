@@ -240,14 +240,82 @@ header {
 
 /* Global Controls Centered */
 .global-controls {
+    grid-column: 1 / -1;
+    /* Span entire width */
     display: flex;
     justify-content: center;
-    gap: 20px;
-    margin: 20px auto;
+    gap: 30px;
+    margin: 20px auto 0;
     width: 100%;
 }
 
-/* Call Button - NOW BLUE */
+/* ... Call Button ... */
+
+/* ... Control Buttons ... */
+
+/* Hangup Button - Square Red */
+.btn-hangup {
+    background: #ff3b30;
+    color: white;
+}
+
+.btn-hangup:hover {
+    background: #ff2d55;
+    box-shadow: 0 6px 15px rgba(255, 59, 48, 0.5);
+}
+
+/* Modal Controls Layout - CENTERED */
+.call-controls {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: 0 20px;
+    gap: 0;
+    /* Gap handled by media-toggles if needed, but we put all in one div now? No, we put hangup in media-toggles wrapper or separate? In HTML I put it in media-toggles wrapper for easy grouping */
+}
+
+.media-toggles {
+    display: flex;
+    gap: 30px;
+    /* Consistent spacing between all 3 buttons */
+    align-items: center;
+    justify-content: center;
+}
+
+/* Logo Overlay */
+#logo-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    z-index: 10;
+    pointer-events: none;
+    /* Let clicks pass through if needed */
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 600;
+    letter-spacing: 2px;
+}
+
+#logo-overlay.hidden {
+    display: none;
+}
+
+/* Video Mirroring & Visibility */
+.call-content video {
+    /* Existing style */
+}
+
+/* When Logo is visible, we might want to ensure video black background? 
+   No, video element handles background. 
+   But if video is hidden/black, overlay shows.
+*/
 .btn-call {
     flex: 1;
     background: #007AFF;
@@ -311,9 +379,7 @@ header {
     box-shadow: 0 4px 10px rgba(255, 59, 48, 0.4);
 }
 
-.btn-ctrl.off .ctrl-icon {
-    opacity: 1;
-}
+/* .btn-ctrl.off .ctrl-icon: opacity ruled removed as we want full opacity */
 
 /* Status Badges */
 .status-badge {
