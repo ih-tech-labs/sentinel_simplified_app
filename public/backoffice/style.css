@@ -134,7 +134,8 @@ main {
     bottom: 0;
     left: 0;
     right: 0;
-    background: #111;
+    background: transparent;
+    /* Allow RTSP to show through */
     display: flex;
     flex-direction: column;
     z-index: 10;

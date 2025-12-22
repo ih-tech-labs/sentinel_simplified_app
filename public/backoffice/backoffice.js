@@ -146,6 +146,15 @@ function updateMediaState() {
         localStream.getAudioTracks().forEach(track => track.enabled = mediaState.audio);
         localStream.getVideoTracks().forEach(track => track.enabled = mediaState.video);
     }
+
+    // 3. Notify Remote Peer (Kiosk) to update Avatar
+    if (activeCallTarget) {
+        socket.emit('media_state_change', {
+            room: `kiosk-${activeCallTarget}`, // Send to specific room
+            type: 'video',
+            enabled: mediaState.video
+        });
+    }
 }
 
 function updateButtonUI() {
@@ -212,13 +221,8 @@ document.getElementById('btn-global-cam').onclick = toggleCam;
 window.selectKiosk = (id) => {
     activeCallTarget = id;
 
-    // Hide RTSP, Show Call UI
-    document.getElementById(`wrapper-${id}`).style.display = 'none'; // Optional: hide canvas?
-    // Actually, keep wrapper but maybe hidden? 
-    // Plan: Overlay Call UI on top. 
-    // Wrapper has canvas.
-    // Call UI is absolute.
-    // So just showing Call UI covers it.
+    // Show Call UI OVER RTSP (Don't hide RTSP wrapper)
+    // document.getElementById(`wrapper-${id}`).style.display = 'none'; // REMOVED
 
     document.getElementById(`call-ui-${id}`).classList.remove('hidden');
     document.getElementById(`footer-${id}`).style.display = 'none'; // Hide idle user controls
@@ -255,7 +259,7 @@ window.endCall = () => {
     // Reset UI
     document.getElementById(`call-ui-${id}`).classList.add('hidden');
     document.getElementById(`footer-${id}`).style.display = 'flex'; // Restore footer
-    document.getElementById(`wrapper-${id}`).style.display = 'flex'; // Restore RTSP
+    // document.getElementById(`wrapper-${id}`).style.display = 'flex'; // No need to restore if we didn't hide
 
     // Clear Local Video Src
     const localVidRef = document.getElementById(`localVideo-${id}`);
