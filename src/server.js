@@ -44,7 +44,18 @@ io.on('connection', (socket) => {
         } else if (role === 'backoffice') {
             socket.join('backoffice');
             console.log('Backoffice registered');
-            // Send current status to this new backoffice
+            // TEST ALARM BUTTON
+            socket.on('test_alarm', () => {
+                console.log("[TEST] Manually triggering alarm...");
+                io.to('backoffice').emit('alarm_trigger', {
+                    camera: "Cámara de Prueba",
+                    triggerVideo: true,
+                    sound: true,
+                    details: "Prueba Manual"
+                });
+            });
+
+            // TEST ALARM BUTTONcurrent status to this new backoffice
             socket.emit('kiosk_status', { online: !!kioskSocketId });
         }
         // Both join the signaling room for calls

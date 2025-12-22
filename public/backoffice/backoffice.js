@@ -7,6 +7,44 @@ const btnCam = document.getElementById('btn-cam');
 const btnText = document.querySelector('.btn-text');
 const localVideo = document.getElementById('localVideo');
 const remoteAudio = document.getElementById('remoteAudio');
+// ALARM SYSTEM
+const alarmAudio = document.getElementById('alarmAudio');
+let isAlarmActive = false;
+
+document.getElementById('btn-test-alarm').onclick = () => {
+    socket.emit('test_alarm');
+};
+
+socket.on('alarm_trigger', (data) => {
+    console.log("ALARM RECEIVED:", data);
+
+    // 1. Play Sound
+    if (data.sound) {
+        alarmAudio.currentTime = 0;
+        alarmAudio.play().catch(e => console.warn("Audio play blocked:", e));
+    }
+
+    // 2. Visual Effect (Persistent until clicked)
+    const rtspPanel = document.querySelector('.rtsp-panel');
+    rtspPanel.classList.add('alarm-active');
+    isAlarmActive = true;
+
+    // 3. Clear on Click
+    rtspPanel.onclick = () => {
+        if (isAlarmActive) {
+            clearAlarmState();
+        }
+    };
+});
+
+function clearAlarmState() {
+    const rtspPanel = document.querySelector('.rtsp-panel');
+    rtspPanel.classList.remove('alarm-active');
+    alarmAudio.pause();
+    alarmAudio.currentTime = 0;
+    isAlarmActive = false;
+    rtspPanel.onclick = null; // Remove handler
+}
 const kioskStatus = document.getElementById('kiosk-status');
 const canvas = document.getElementById('video-canvas');
 const rtspStatus = document.getElementById('rtsp-status');
@@ -119,6 +157,7 @@ let mediaState = {
 updateMediaButtons();
 
 async function startCall() {
+    if (isAlarmActive) clearAlarmState(); // Stop alarm if calling
     isCallActive = true;
     updateUIState(true);
     document.querySelector('.idle-placeholder').classList.add('hidden'); // Hide idle screen

@@ -4,7 +4,8 @@ const Stream = require('node-rtsp-stream');
 // CONFIGURACIÓN GLOBAL
 // Pegar aquí la URL del RTSP de la cámara
 // ==========================================
-const RTSP_URL = 'rtsp://admin:12345@192.168.1.10:554/stream';
+//const RTSP_URL = 'rtsp://admin:Admin0962@1b4f9d050d8134690137ec8272763c96.2.camera.verkada-lan.com:8554/standard';
+const RTSP_URL = 'rtsp://admin:Admin0962@2f206bcb1ad24144a5192eaf72758885.5.camera.verkada-lan.com:8554/standard';
 // ==========================================
 
 const STREAM_PORT = 9999;

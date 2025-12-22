@@ -293,6 +293,37 @@ footer {
     box-shadow: 0 0 20px rgba(255, 59, 48, 0.3);
 }
 
+/* Alarm State */
+.alarm-active {
+    border: 5px solid #ff0000 !important;
+    animation: alarmPulse 1s infinite;
+}
+
+@keyframes alarmPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 20px rgba(255, 0, 0, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 0, 0, 0);
+    }
+}
+
+.btn-warning {
+    background: #ff9800;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-left: 10px;
+}
+
 /* Secondary Buttons */
 .sec-controls,
 .spacer {

@@ -52,8 +52,13 @@
                 <div class="panel rtsp-panel">
                     <div class="panel-header">
                         <span>CÁMARA REMOTA (RTSP)</span>
-                        <button id="btn-config-rtsp" class="btn-icon-small" title="Configurar URL">⚙️</button>
+                        <div class="actions">
+                            <button class="btn-config" id="btn-config-rtsp" title="Configurar RTSP">⚙️</button>
+                            <button class="btn-warning" id="btn-test-alarm" title="Probar Alarma">🔔 TEST</button>
+                        </div>
                     </div>
+
+                    <audio id="alarmAudio" src="/assets/alarm.mp3" preload="auto"></audio>
                     <div class="rtsp-wrapper">
                         <canvas id="video-canvas"></canvas>
                         <div class="rtsp-overlay" id="rtsp-status">Conectando...</div>
