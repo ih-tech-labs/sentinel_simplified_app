@@ -53,13 +53,52 @@
                     </div>
 
                     <!-- RTSP Player Container -->
-                    <div class="video-wrapper">
+                    <div class="video-wrapper" id="wrapper-tenis">
                         <canvas id="canvas-tenis" class="rtsp-canvas"></canvas>
                         <div class="overlay-msg">Conectando...</div>
                     </div>
 
-                    <!-- Controls -->
-                    <div class="card-footer">
+                    <!-- IN-CARD CALL INTERFACE -->
+                    <div class="call-interface hidden" id="call-ui-tenis">
+                        <video id="remoteVideo-tenis" autoplay playsinline class="remote-video"></video>
+                        <audio id="remoteAudio-tenis" autoplay></audio>
+
+                        <div class="local-pip">
+                            <video id="localVideo-tenis" autoplay playsinline muted class="mirror"></video>
+                            <div class="logo-overlay hidden" id="logo-tenis">
+                                <svg viewBox="0 0 24 24" fill="currentColor" width="40" height="40">
+                                    <path
+                                        d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="card-call-controls">
+                            <button id="btn-mute-tenis" class="btn-ctrl-mini active" onclick="toggleMute()">
+                                <svg class="ctrl-icon-mini" viewBox="0 0 24 24" fill="currentColor">
+                                    <path
+                                        d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 2.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                                    <path
+                                        d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                                </svg>
+                            </button>
+                            <button id="btn-cam-tenis" class="btn-ctrl-mini active" onclick="toggleCam()">
+                                <svg class="ctrl-icon-mini" viewBox="0 0 24 24" fill="currentColor">
+                                    <path
+                                        d="M15 8v8H5V8h10m1-2H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4V7c0-.55-.45-1-1-1z" />
+                                </svg>
+                            </button>
+                            <button class="btn-hangup-mini" onclick="endCall()">
+                                <svg class="ctrl-icon-mini" viewBox="0 0 24 24" fill="currentColor">
+                                    <path
+                                        d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.36 7.46 6 12 6s8.66 2.36 11.71 5.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Idle Controls -->
+                    <div class="card-footer" id="footer-tenis">
                         <button class="btn-call idle" onclick="selectKiosk('tenis')">
                             <span class="icon">📞</span> LLAMAR
                         </button>
@@ -86,24 +125,12 @@
                 </div>
             </div>
 
-            <!-- PiP Container (Moved dynamically) -->
-            <div id="pip-container" class="hidden">
-                <video id="localVideo" autoplay playsinline muted></video>
-                <!-- Person Logo Overlay -->
-                <div class="logo-overlay hidden">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path
-                            d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                    </svg>
-                </div>
-            </div>
+
         </main>
 
         <!-- Footer / Controls -->
         <!-- Alarm Audio (Hidden) -->
         <audio id="alarmAudio" src="/assets/alarm.mp3" preload="auto"></audio>
-        <!-- Remote Audio -->
-        <audio id="remoteAudio" autoplay></audio>
     </div>
 
     <script src="backoffice.js"></script>

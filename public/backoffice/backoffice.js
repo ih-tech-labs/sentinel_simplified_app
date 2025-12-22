@@ -153,19 +153,18 @@ function updateButtonUI() {
     setBtnState('btn-global-mute', mediaState.audio);
     setBtnState('btn-global-cam', mediaState.video);
 
-    // Modal Buttons
-    setBtnState('btn-modal-mute', mediaState.audio);
-    setBtnState('btn-modal-cam', mediaState.video);
+    // Mini Buttons (Card specific)
+    ['admin', 'tenis'].forEach(id => {
+        setBtnMiniState(`btn-mute-${id}`, mediaState.audio);
+        setBtnMiniState(`btn-cam-${id}`, mediaState.video);
 
-    // Logo Overlay
-    const logo = document.getElementById('logo-overlay');
-    if (logo) {
-        if (!mediaState.video) {
-            logo.classList.remove('hidden');
-        } else {
-            logo.classList.add('hidden');
+        // Logo Overlay Logic
+        const logo = document.getElementById(`logo-${id}`);
+        if (logo) {
+            if (!mediaState.video) logo.classList.remove('hidden');
+            else logo.classList.add('hidden');
         }
-    }
+    });
 }
 
 function setBtnState(btnId, isActive) {
@@ -173,81 +172,99 @@ function setBtnState(btnId, isActive) {
     if (!btn) return;
 
     if (isActive) {
-        btn.classList.add('active');
         btn.classList.remove('off');
-        btn.title = btnId.includes('mute') ? "Silenciar" : "Apagar Cámara";
+        btn.classList.add('active');
     } else {
-        btn.classList.remove('active');
         btn.classList.add('off');
-        btn.title = btnId.includes('mute') ? "Activar Micrófono" : "Encender Cámara";
+        btn.classList.remove('active');
     }
 }
 
-// BIND EVENTS
+function setBtnMiniState(btnId, isActive) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+
+    if (isActive) {
+        btn.classList.remove('off');
+        btn.classList.add('active');
+    } else {
+        btn.classList.add('off');
+        btn.classList.remove('active');
+    }
+}
+
+// BIND EVENTS (Globals)
 document.getElementById('btn-global-mute').onclick = toggleMute;
 document.getElementById('btn-global-cam').onclick = toggleCam;
 
+// BIND EVENTS (Card Specific)
+['admin', 'tenis'].forEach(id => {
+    const muteBtn = document.getElementById(`btn-mute-${id}`);
+    if (muteBtn) muteBtn.onclick = toggleMute;
+    const camBtn = document.getElementById(`btn-cam-${id}`);
+    if (camBtn) camBtn.onclick = toggleCam;
+    const endCallBtn = document.getElementById(`btn-end-call-${id}`);
+    if (endCallBtn) endCallBtn.onclick = () => window.endCall();
+});
 
-// ==========================================
-// CALL MANAGEMENT (FACETIME UX)
-// ==========================================
 
-// TRIGGERED BY "LLAMAR" BUTTON
+// OPEN CALL (IN-CARD UI)
 window.selectKiosk = (id) => {
-    // If already calling THIS kiosk, end call
-    if (activeCallTarget === id) {
-        endCall();
-        return;
-    }
-
-    // If calling ANOTHER kiosk, end that first (optional, but safer)
-    if (activeCallTarget && activeCallTarget !== id) {
-        endCall();
-        // Small delay might be needed or just proceed
-    }
-
     activeCallTarget = id;
 
-    // 1. UI: Move PiP to this card
-    const card = document.getElementById(`card-${id}`);
-    const videoWrapper = card.querySelector('.video-wrapper');
-    const pipContainer = document.getElementById('pip-container');
+    // Hide RTSP, Show Call UI
+    document.getElementById(`wrapper-${id}`).style.display = 'none'; // Optional: hide canvas?
+    // Actually, keep wrapper but maybe hidden? 
+    // Plan: Overlay Call UI on top. 
+    // Wrapper has canvas.
+    // Call UI is absolute.
+    // So just showing Call UI covers it.
 
-    videoWrapper.appendChild(pipContainer);
-    pipContainer.classList.remove('hidden');
+    document.getElementById(`call-ui-${id}`).classList.remove('hidden');
+    document.getElementById(`footer-${id}`).style.display = 'none'; // Hide idle user controls
 
-    // 2. UI: Update Button to "FINALIZAR"
-    updateCallButton(id, true);
-
-    // 3. Start Logic
     startCall(id);
 };
-
-function updateCallButton(id, isCallActive) {
-    // Reset ALL call buttons first
-    document.querySelectorAll('.btn-call').forEach(btn => {
-        btn.classList.remove('active-call');
-        btn.innerHTML = '<span class="icon">📞</span> LLAMAR';
-        btn.onclick = () => window.selectKiosk(btn.closest('.kiosk-card').id.split('-')[1]);
-    });
-
-    if (isCallActive) {
-        const btn = document.querySelector(`#card-${id} .btn-call`);
-        if (btn) {
-            btn.classList.add('active-call');
-            btn.innerHTML = '<span class="icon">📞</span> FINALIZAR';
-            // Onclick logic strictly handled by selectKiosk toggle check
-        }
-    }
-}
 
 // TEST ALARM
 window.testAlarm = (id) => {
     socket.emit('test_alarm', id);
 };
 
+// END CALL ACTION
+window.endCall = () => {
+    const id = activeCallTarget;
+    if (!id) return;
+
+    activeCallTarget = null;
+    const remoteAudio = document.getElementById(`remoteAudio-${id}`);
+
+    if (peerConnection) {
+        socket.emit('end_call', 'sentinel-room');
+        peerConnection.close();
+        peerConnection = null;
+    }
+
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+
+    if (remoteAudio) remoteAudio.srcObject = null;
+
+    // Reset UI
+    document.getElementById(`call-ui-${id}`).classList.add('hidden');
+    document.getElementById(`footer-${id}`).style.display = 'flex'; // Restore footer
+    document.getElementById(`wrapper-${id}`).style.display = 'flex'; // Restore RTSP
+
+    // Clear Local Video Src
+    const localVidRef = document.getElementById(`localVideo-${id}`);
+    if (localVidRef) localVidRef.srcObject = null;
+}
+
 // Initialize UI
 updateButtonUI();
+
 
 // ==========================================
 // 4. WEBRTC LOGIC (ROUTING)
@@ -258,7 +275,7 @@ let rtcConfig = {
 };
 
 async function startCall(targetId) {
-    const ROOM_ID = `kiosk-${targetId}`;
+    const ROOM_ID = `kiosk-${targetId}`; // Connect to specific room
     console.log(`Starting call to: ${ROOM_ID}`);
 
     socket.emit('start_call', ROOM_ID);
@@ -266,39 +283,42 @@ async function startCall(targetId) {
     peerConnection = new RTCPeerConnection(rtcConfig);
 
     try {
-        // Reuse localStream if possible or get new
-        if (!localStream) {
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        }
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
 
-        // Apply current media state immediately
+        // Apply Initial Media State
         localStream.getAudioTracks().forEach(track => track.enabled = mediaState.audio);
         localStream.getVideoTracks().forEach(track => track.enabled = mediaState.video);
 
-        // Set to PiP Video
-        const localVidEl = document.getElementById('localVideo');
-        localVidEl.srcObject = localStream;
-        // Ensure play (sometimes needed after moving DOM)
-        localVidEl.play().catch(e => { });
+        // Targeted Local Video (In PIP)
+        const localVid = document.getElementById(`localVideo-${targetId}`);
+        if (localVid) localVid.srcObject = localStream;
 
         localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
     } catch (err) {
         console.error("Error media", err);
         alert("No se pudo acceder a Cámara/Micrófono");
-        endCall(); // Reset UI
         return;
     }
 
-    const remoteAudio = document.getElementById('remoteAudio');
+    // Targeted Remote Audio/Video
+    const remoteAudio = document.getElementById(`remoteAudio-${targetId}`);
+    const remoteVideo = document.getElementById(`remoteVideo-${targetId}`);
 
     peerConnection.ontrack = (event) => {
-        if (remoteAudio.srcObject !== event.streams[0]) {
-            remoteAudio.srcObject = event.streams[0];
-            console.log("Remote Audio Connected");
+        // Handle Video Track
+        if (event.track.kind === 'video') {
+            if (remoteVideo.srcObject !== event.streams[0]) {
+                remoteVideo.srcObject = event.streams[0];
+            }
+        }
+        // Handle Audio Track
+        if (event.track.kind === 'audio') {
+            if (remoteAudio.srcObject !== event.streams[0]) {
+                remoteAudio.srcObject = event.streams[0];
+            }
         }
     };
 
-    // ... setup ICE, Offer ...
     peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
             socket.emit('candidate', { room: ROOM_ID, candidate: event.candidate });
@@ -309,11 +329,10 @@ async function startCall(targetId) {
     await peerConnection.setLocalDescription(offer);
     socket.emit('offer', { room: ROOM_ID, offer: offer });
 
-    // Sync initial media state to Kiosk
-    socket.emit('media_state_change', { room: ROOM_ID, ...mediaState });
+    // Signaling Handlers (Specific to this call instance)
+    setupSignaling(ROOM_ID);
 }
 
-// Signaling Handlers (Specific to this call instance)
 function setupSignaling(roomId) {
     // Note: In V3 we had global listeners. In V4 we might get crosstalk if we don't handle rooms.
     // The server emits 'answer' to the room => but backoffice is in 'backoffice' room?
@@ -368,37 +387,5 @@ socket.on('candidate', async (candidate) => {
     }
 });
 
-function endCall() {
-    const wasActive = activeCallTarget;
-    activeCallTarget = null;
 
-    // UI Reset
-    const pipContainer = document.getElementById('pip-container');
-    pipContainer.classList.add('hidden');
-    // Move back to body or leave it (hidden is enough)
 
-    updateCallButton(wasActive, false);
-
-    const remoteAudio = document.getElementById('remoteAudio');
-    if (remoteAudio) remoteAudio.srcObject = null;
-
-    if (activeCallTarget) {
-        // Should have sent end_call
-    }
-    // We already cleared activeCallTarget, so let's send to the specific room if we knew it
-    if (wasActive) {
-        socket.emit('end_call', `kiosk-${wasActive}`);
-    }
-
-    if (localStream) {
-        // We might want to keep localStream alive for snappy next call? 
-        // For now, stop it to release cam light
-        localStream.getTracks().forEach(track => track.stop());
-        localStream = null;
-    }
-
-    if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-    }
-}
