@@ -21,90 +21,69 @@
 
         <!-- Main Content -->
         <main>
-            <div class="grid-container">
-                <!-- Local Camera Preview -->
-                <div class="panel video-panel">
-                    <div class="panel-header">TRANSMISIÓN</div>
+            <div class="grid-container multi-kiosk">
+                <!-- CARD 1: ADMINISTRACIÓN -->
+                <div class="kiosk-card" id="card-admin">
+                    <div class="card-header">
+                        <span class="kiosk-name">ADMINISTRACIÓN</span>
+                        <div class="status-dot offline" id="status-admin"></div>
+                    </div>
+
+                    <!-- RTSP Player Container -->
                     <div class="video-wrapper">
-                        <video id="localVideo" autoplay playsinline muted class="mirror"></video>
-                        <div class="avatar-placeholder">
-                            <svg viewBox="0 0 24 24" fill="none" class="avatar-icon">
-                                <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.5" />
-                                <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="currentColor" stroke-width="1.5"
-                                    stroke-linecap="round" />
-                            </svg>
-                        </div>
-                        <div class="idle-placeholder">
-                            <svg viewBox="0 0 24 24" fill="none" class="idle-icon">
-                                <path
-                                    d="M15.5 2H8.5C5.46 2 3 4.46 3 7.5V16.5C3 19.54 5.46 22 8.5 22H15.5C18.54 22 21 19.54 21 16.5V7.5C21 4.46 18.54 2 15.5 2Z"
-                                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                                    stroke-linejoin="round" />
-                                <path d="M12 17V17.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                    stroke-linejoin="round" />
-                            </svg>
-                            <span>Listo para llamar</span>
-                        </div>
+                        <canvas id="canvas-admin" class="rtsp-canvas"></canvas>
+                        <div class="overlay-msg">Conectando...</div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="card-footer">
+                        <button class="btn-call idle" onclick="selectKiosk('admin')">
+                            <span class="icon">📞</span> LLAMAR
+                        </button>
+                        <button class="btn-test-mini" onclick="testAlarm('admin')">🔔 Test</button>
                     </div>
                 </div>
 
-                <!-- RTSP Stream Panel (Previously Audio) -->
-                <div class="panel rtsp-panel">
-                    <div class="panel-header">
-                        <span>CÁMARA REMOTA (RTSP)</span>
-                        <div class="actions">
-                            <button class="btn-test" id="btn-test-alarm" title="Probar Alarma">Probar Alarma</button>
-                        </div>
+                <!-- CARD 2: HOUSE TENIS -->
+                <div class="kiosk-card" id="card-tenis">
+                    <div class="card-header">
+                        <span class="kiosk-name">HOUSE TENIS</span>
+                        <div class="status-dot offline" id="status-tenis"></div>
                     </div>
 
-                    <audio id="alarmAudio" src="/assets/alarm.mp3" preload="auto"></audio>
-                    <div class="rtsp-wrapper">
-                        <canvas id="video-canvas"></canvas>
-                        <div class="rtsp-overlay" id="rtsp-status">Conectando...</div>
+                    <!-- RTSP Player Container -->
+                    <div class="video-wrapper">
+                        <canvas id="canvas-tenis" class="rtsp-canvas"></canvas>
+                        <div class="overlay-msg">Conectando...</div>
                     </div>
-                    <!-- Keeping audio element hidden for communication -->
-                    <audio id="remoteAudio" autoplay style="display:none"></audio>
+
+                    <!-- Controls -->
+                    <div class="card-footer">
+                        <button class="btn-call idle" onclick="selectKiosk('tenis')">
+                            <span class="icon">📞</span> LLAMAR
+                        </button>
+                        <button class="btn-test-mini" onclick="testAlarm('tenis')">🔔 Test</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Call Modal (Hidden by default) -->
+            <div id="call-modal" class="hidden">
+                <div class="call-content">
+                    <h2>En llamada con: <span id="call-target-name">...</span></h2>
+                    <video id="localVideo" autoplay playsinline muted class="mirror"></video>
+                    <audio id="remoteAudio" autoplay></audio>
+
+                    <div class="call-controls">
+                        <button id="btn-end-call" class="btn-danger">FINALIZAR</button>
+                    </div>
                 </div>
             </div>
         </main>
 
         <!-- Footer / Controls -->
-        <footer>
-            <div class="controls-wrapper">
-
-                <!-- Secondary Controls (Left) -->
-                <div class="sec-controls">
-                    <button id="btn-mute" class="btn-icon" title="Mutear/Desmutear Micrófono">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                            <line x1="12" y1="19" x2="12" y2="23"></line>
-                            <line x1="8" y1="23" x2="16" y2="23"></line>
-                        </svg>
-                    </button>
-                    <button id="btn-cam" class="btn-icon" title="Encender/Apagar Cámara">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z">
-                            </path>
-                            <circle cx="12" cy="13" r="4"></circle>
-                        </svg>
-                    </button>
-                </div>
-
-                <!-- Main Action (Center) -->
-                <div class="main-control">
-                    <button id="btn-toggle-call" class="btn-toggle idle">
-                        <span class="btn-text">INICIAR LLAMADA</span>
-                    </button>
-                </div>
-
-                <!-- Spacer (Right) to balance flex -->
-                <div class="spacer"></div>
-
-            </div>
-        </footer>
+        <!-- Alarm Audio (Hidden) -->
+        <audio id="alarmAudio" src="/assets/alarm.mp3" preload="auto"></audio>
     </div>
 
     <script src="backoffice.js"></script>

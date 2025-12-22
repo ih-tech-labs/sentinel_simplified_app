@@ -7,6 +7,10 @@ const crypto = require('crypto');
 const bodyParser = require('body-parser');
 require('dotenv').config();
 const verkadaConfig = require('./verkadaConfig');
+const { startStreams } = require('./stream');
+
+// Start RTSP Streams
+startStreams(verkadaConfig);
 
 const app = express();
 const server = http.createServer(app);
@@ -111,6 +115,7 @@ app.post('/verkada-webhook', validateVerkadaWebhook, (req, res) => {
         console.log(`-> Alarm Triggered for: ${camConfig.name}`);
 
         io.to('backoffice').emit('alarm_trigger', {
+            kioskId: camConfig.id, // Critical for routing in Backoffice
             camera: camConfig.name,
             cameraId: cameraId,
             triggerVideo: camConfig.triggerVideo,
@@ -134,31 +139,44 @@ io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
     // Registration handling
-    socket.on('register', (role) => {
+    socket.on('register', (data) => {
+        // Data can be object { role: 'kiosk', id: 'admin' } or string 'backoffice'
+        const role = (typeof data === 'object') ? data.role : data;
+        const kioskId = (typeof data === 'object') ? data.id : null;
+
         if (role === 'kiosk') {
-            kioskSocketId = socket.id;
-            socket.join('kiosk');
-            console.log('Kiosk registered');
-            // Notify all backoffices
-            io.to('backoffice').emit('kiosk_status', { online: true });
+            // Join specific room for this Kiosk (e.g. 'kiosk-admin')
+            const roomName = `kiosk-${kioskId}`;
+            socket.join(roomName);
+
+            console.log(`Kiosk registered: ${kioskId} (Room: ${roomName})`);
+
+            // Notify backoffice that THIS specific kiosk is online
+            io.to('backoffice').emit('kiosk_status', { id: kioskId, online: true });
         } else if (role === 'backoffice') {
             socket.join('backoffice');
             console.log('Backoffice registered');
-            // TEST ALARM BUTTON
-            socket.on('test_alarm', () => {
-                console.log("[TEST] Manually triggering alarm...");
-                io.to('backoffice').emit('alarm_trigger', {
-                    camera: "Cámara de Prueba",
-                    triggerVideo: true,
-                    sound: true,
-                    details: "Prueba Manual"
-                });
-            });
 
-            // TEST ALARM BUTTONcurrent status to this new backoffice
-            socket.emit('kiosk_status', { online: !!kioskSocketId });
+            // TEST ALARM: Now requires target
+            socket.on('test_alarm', (targetId) => { // targetId = 'admin' or 'tenis'
+                console.log(`[TEST] Triggering alarm for ${targetId}...`);
+
+                // Find config by slug ID
+                const camEntry = Object.entries(verkadaConfig).find(([_, cfg]) => cfg.id === targetId);
+
+                if (camEntry) {
+                    const [uuid, cfg] = camEntry;
+                    io.to('backoffice').emit('alarm_trigger', {
+                        kioskId: cfg.id, // CRITICAL for UI routing
+                        camera: cfg.name,
+                        triggerVideo: true,
+                        sound: true,
+                        details: "Prueba Manual V4.0"
+                    });
+                }
+            });
         }
-        // Both join the signaling room for calls
+
         socket.join('sentinel-room');
     });
 
@@ -188,20 +206,18 @@ io.on('connection', (socket) => {
 
     // Media State Sync (Explicit)
     socket.on('media_state_change', (data) => {
-        // data = { type: 'video' | 'audio', enabled: boolean, room: '...' }
         socket.to(data.room).emit('remote_media_state', data);
     });
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
-        if (socket.id === kioskSocketId) {
-            kioskSocketId = null;
-            io.to('backoffice').emit('kiosk_status', { online: false });
-            console.log('Kiosk disconnected');
-        }
+        // Note: Simple disconnect logic for now, tough to track multiple kiosks without map
+        // V4.0 TODO: Implement Map<SocketID, KioskID> for accurate offline tracking
     });
 });
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Sentinel Server running on port ${PORT}`);
 });
+
+

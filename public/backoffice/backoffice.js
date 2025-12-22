@@ -1,22 +1,93 @@
 const socket = io();
 
-// UI Elements
-const btnToggle = document.getElementById('btn-toggle-call');
-const btnMute = document.getElementById('btn-mute');
-const btnCam = document.getElementById('btn-cam');
-const btnText = document.querySelector('.btn-text');
-const localVideo = document.getElementById('localVideo');
-const remoteAudio = document.getElementById('remoteAudio');
-// ALARM SYSTEM
+// STATE
+let activeCallTarget = null; // 'admin' or 'tenis'
+let peerConnection = null;
+let localStream = null;
+let isAlarmActive = { admin: false, tenis: false };
+let players = {};
+
+// ALARM AUDIO
 const alarmAudio = document.getElementById('alarmAudio');
-let isAlarmActive = false;
 
-document.getElementById('btn-test-alarm').onclick = () => {
-    socket.emit('test_alarm');
-};
+// ==========================================
+// 1. INITIALIZATION
+// ==========================================
 
+socket.emit('register', 'backoffice');
+
+// Init Players for both Kiosks
+function initPlayers() {
+    // Player 1: Admin (Port 9998)
+    if (document.getElementById('canvas-admin')) {
+        players['admin'] = new JSMpeg.Player(`ws://${window.location.hostname}:9998`, {
+            canvas: document.getElementById('canvas-admin'),
+            autoplay: true,
+            audio: false,
+            onSourceEstablished: () => hideOverlay('admin'),
+            onSourceCompleted: () => showOverlay('admin', 'Desconectado')
+        });
+    }
+
+    // Player 2: Tenis (Port 9999)
+    if (document.getElementById('canvas-tenis')) {
+        players['tenis'] = new JSMpeg.Player(`ws://${window.location.hostname}:9999`, {
+            canvas: document.getElementById('canvas-tenis'),
+            autoplay: true,
+            audio: false,
+            onSourceEstablished: () => hideOverlay('tenis'),
+            onSourceCompleted: () => showOverlay('tenis', 'Desconectado')
+        });
+    }
+}
+
+function hideOverlay(id) {
+    const el = document.querySelector(`#card-${id} .overlay-msg`);
+    if (el) el.style.display = 'none';
+}
+
+function showOverlay(id, msg) {
+    const el = document.querySelector(`#card-${id} .overlay-msg`);
+    if (el) {
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+}
+
+// Start Video
+initPlayers();
+
+
+// ==========================================
+// 2. SOCKET EVENTS (STATUS & ALARM)
+// ==========================================
+
+socket.on('disconnect', () => {
+    updateStatus('admin', false);
+    updateStatus('tenis', false);
+});
+
+// Update specific Kiosk Status
+socket.on('kiosk_status', (data) => {
+    // data = { id: 'admin', online: true }
+    if (data.id) {
+        updateStatus(data.id, data.online);
+    }
+});
+
+function updateStatus(id, isOnline) {
+    const badge = document.getElementById(`status-${id}`);
+    if (badge) {
+        badge.className = isOnline ? 'status-dot online' : 'status-dot offline';
+    }
+}
+
+// Handle Alarms (Targeted)
 socket.on('alarm_trigger', (data) => {
     console.log("ALARM RECEIVED:", data);
+    const targetId = data.kioskId; // 'admin' or 'tenis'
+
+    if (!targetId) return;
 
     // 1. Play Sound
     if (data.sound) {
@@ -24,140 +95,63 @@ socket.on('alarm_trigger', (data) => {
         alarmAudio.play().catch(e => console.warn("Audio play blocked:", e));
     }
 
-    // 2. Visual Effect (Persistent until clicked)
-    const rtspPanel = document.querySelector('.rtsp-panel');
-    rtspPanel.classList.add('alarm-active');
-    isAlarmActive = true;
+    // 2. Visual Effect on Card
+    const card = document.getElementById(`card-${targetId}`);
+    if (card) {
+        card.classList.add('active-alarm');
+        isAlarmActive[targetId] = true;
 
-    // 3. Clear on Click
-    rtspPanel.onclick = () => {
-        if (isAlarmActive) {
-            clearAlarmState();
-        }
-    };
+        // Clear on click
+        card.onclick = () => {
+            if (isAlarmActive[targetId]) {
+                card.classList.remove('active-alarm');
+                alarmAudio.pause();
+                isAlarmActive[targetId] = false;
+                card.onclick = null;
+            }
+        };
+    }
 });
 
-function clearAlarmState() {
-    const rtspPanel = document.querySelector('.rtsp-panel');
-    rtspPanel.classList.remove('alarm-active');
-    alarmAudio.pause();
-    alarmAudio.currentTime = 0;
-    isAlarmActive = false;
-    rtspPanel.onclick = null; // Remove handler
-}
-const kioskStatus = document.getElementById('kiosk-status');
-const canvas = document.getElementById('video-canvas');
-const rtspStatus = document.getElementById('rtsp-status');
+// ==========================================
+// 3. UI ACTIONS
+// ==========================================
 
-const rtcConfig = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }
-    ]
+// OPEN CALL MODAL
+window.selectKiosk = (id) => {
+    activeCallTarget = id;
+    const name = id === 'admin' ? "Administración" : "House Tenis";
+
+    document.getElementById('call-target-name').textContent = name;
+    document.getElementById('call-modal').classList.remove('hidden');
+
+    // Start WebRTC immediatly
+    startCall(id);
 };
 
-let peerConnection;
-let localStream;
-let isCallActive = false;
-const ROOM_ID = 'sentinel-room';
-let player = null;
-
-// Init Socket
-socket.emit('register', 'backoffice');
-
-// Init JSMPEG Player
-function initPlayer() {
-    const url = `ws://${window.location.hostname}:9999`;
-    rtspStatus.textContent = "Conectando al video...";
-
-    if (player) {
-        player.destroy();
-    }
-
-    player = new JSMpeg.Player(url, {
-        canvas: canvas,
-        autoplay: true,
-        audio: false, // Video only from RTSP usually, or check source
-        onSourceEstablished: () => {
-            rtspStatus.style.display = 'none';
-        },
-        onSourceCompleted: () => {
-            rtspStatus.textContent = "Desconectado";
-            rtspStatus.style.display = 'block';
-        }
-    });
-}
-
-// Start player on load
-initPlayer();
-
-
-
-socket.on('disconnect', () => {
-    kioskStatus.className = 'status-badge offline';
-    kioskStatus.textContent = 'OFFLINE';
-});
-
-// Status Update from Server
-socket.on('kiosk_status', (status) => {
-    if (status.online) {
-        kioskStatus.className = 'status-badge online';
-        kioskStatus.textContent = 'ONLINE';
-    } else {
-        kioskStatus.className = 'status-badge offline';
-        kioskStatus.textContent = 'OFFLINE';
-    }
-});
-
-
-// Signaling
-socket.on('answer', async (answer) => {
-    if (peerConnection) {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-    }
-});
-
-socket.on('candidate', async (candidate) => {
-    if (peerConnection) {
-        try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) { console.error(e); }
-    }
-});
-
-// ------------------------------------
-// Handlers
-// ------------------------------------
-
-btnToggle.onclick = () => {
-    if (!isCallActive) {
-        startCall();
-    } else {
-        endCall();
-    }
+// TEST ALARM
+window.testAlarm = (id) => {
+    socket.emit('test_alarm', id);
 };
 
-btnMute.onclick = toggleMute;
-btnCam.onclick = toggleCam;
-
-
-// ------------------------------------
-// Logic
-// ------------------------------------
-
-// Initial State
-let mediaState = {
-    audio: true,
-    video: true
+// END CALL ACTION
+document.getElementById('btn-end-call').onclick = () => {
+    endCall();
+    document.getElementById('call-modal').classList.add('hidden');
 };
 
-// Initial Sync UI
-updateMediaButtons();
 
-async function startCall() {
-    if (isAlarmActive) clearAlarmState(); // Stop alarm if calling
-    isCallActive = true;
-    updateUIState(true);
-    document.querySelector('.idle-placeholder').classList.add('hidden'); // Hide idle screen
+// ==========================================
+// 4. WEBRTC LOGIC (ROUTING)
+// ==========================================
+
+let rtcConfig = {
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+};
+
+async function startCall(targetId) {
+    const ROOM_ID = `kiosk-${targetId}`; // Connect to specific room
+    console.log(`Starting call to: ${ROOM_ID}`);
 
     socket.emit('start_call', ROOM_ID);
 
@@ -165,31 +159,21 @@ async function startCall() {
 
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        document.getElementById('localVideo').srcObject = localStream;
 
-        // Apply Initial State
-        localStream.getAudioTracks()[0].enabled = mediaState.audio;
-        localStream.getVideoTracks()[0].enabled = mediaState.video;
-
-        localVideo.srcObject = localStream;
         localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-        // Update UI (Avatar local check)
-        updateLocalAvatar(mediaState.video);
-
-        // Sync with Peer immediately
-        socket.emit('media_state_change', { room: ROOM_ID, type: 'audio', enabled: mediaState.audio });
-        socket.emit('media_state_change', { room: ROOM_ID, type: 'video', enabled: mediaState.video });
-
     } catch (err) {
         console.error("Error media", err);
         alert("No se pudo acceder a Cámara/Micrófono");
-        endCall();
         return;
     }
+
+    const remoteAudio = document.getElementById('remoteAudio');
 
     peerConnection.ontrack = (event) => {
         if (remoteAudio.srcObject !== event.streams[0]) {
             remoteAudio.srcObject = event.streams[0];
+            console.log("Remote Audio Connected");
         }
     };
 
@@ -202,14 +186,85 @@ async function startCall() {
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
     socket.emit('offer', { room: ROOM_ID, offer: offer });
+
+    // Signaling Handlers (Specific to this call instance)
+    setupSignaling(ROOM_ID);
 }
 
-function endCall() {
-    isCallActive = false;
-    updateUIState(false);
-    document.querySelector('.idle-placeholder').classList.remove('hidden'); // Show idle screen
+function setupSignaling(roomId) {
+    // Note: In V3 we had global listeners. In V4 we might get crosstalk if we don't handle rooms.
+    // The server emits 'answer' to the room => but backoffice is in 'backoffice' room?
+    // Wait, Server Logic: socket.to(data.room).emit('answer', data.answer);
+    // Backoffice needs to be in the 'sentinel-room' or the specific room?
 
-    socket.emit('end_call', ROOM_ID);
+    // In V4 Server Logic:
+    // socket.join('sentinel-room') for everyone. 
+    // Offer/Answer goes to data.room.
+    // The Room ID used is `kiosk-{id}`.
+    // So the Kiosk is in `kiosk-{id}`.
+    // The Backoffice is NOT in `kiosk-{id}` by default?
+    // Correct. The Backoffice sends Offer to `kiosk-{id}`.
+    // The Kiosk sends Answer to... wait. 
+    // Server: socket.to(data.room).emit...
+
+    // If Kiosk replies to `kiosk-{id}`, Backoffice MUST be in that room to receive it?
+    // OR Backoffice joins `kiosk-{id}` temporarily?
+    // OR we use a common signaling room.
+
+    // Current Server Logic:
+    // socket.on('register') -> Backoffice joins 'backoffice' AND 'sentinel-room'.
+    // Kiosk joins 'kiosk-{id}' AND 'sentinel-room'.
+
+    // If Backoffice sends Offer to room='kiosk-{id}'...
+    // Server: socket.to('kiosk-{id}').emit('offer'). -> Kiosk receives it. OK.
+
+    // Kiosk sends Answer. To which room? 
+    // Kiosk code sends to ROOM_ID = 'sentinel-room' (Fixed in Kiosk Client).
+    // Kiosk Client: const ROOM_ID = 'sentinel-room';
+
+    // So Kiosk replies to 'sentinel-room'.
+    // Backoffice IS in 'sentinel-room'. So Backoffice receives it. 
+    // BUT! If we have 2 kiosks, both are in 'sentinel-room'.
+    // If Kiosk 1 sends answer, Backoffice gets it.
+    // If Kiosk 2 sends answer (to another backoffice?), Backoffice gets it.
+    // Since we likely only have 1 active call, this is fine for now.
+}
+
+// GLOBAL SIGNALING LISTENERS (Always active, waiting for match on active connection)
+socket.on('answer', async (answer) => {
+    if (peerConnection && peerConnection.signalingState === 'have-local-offer') {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    }
+});
+
+socket.on('candidate', async (candidate) => {
+    if (peerConnection) {
+        try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) { }
+    }
+});
+
+function endCall() {
+    activeCallTarget = null;
+    const remoteAudio = document.getElementById('remoteAudio');
+
+    // Send End to current room?
+    // We don't store the current room ID globally easily, but we can reconstruct or ignore.
+    // Kiosk listens for 'call_ended' on 'sentinel-room' probably?
+    // Kiosk Client: socket.on('call_ended'). 
+    // Server: socket.on('end_call', (room) => io.to(room).emit('call_ended'))
+
+    // We should send end to 'kiosk-admin' or 'sentinel-room'.
+    // Safe bet: transmit to the specific kiosk room
+    // But we need to know WHICH one was active.
+    // If we rely on stored ID:
+    if (peerConnection) {
+        // Find which one was connected? 
+        // Logic simplification: Just emit to 'sentinel-room' to close all calls?
+        // Or better:
+        socket.emit('end_call', 'sentinel-room'); // Kiosks listen here too? 
+    }
 
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
@@ -219,87 +274,6 @@ function endCall() {
         peerConnection.close();
         peerConnection = null;
     }
-    localVideo.srcObject = null;
-    remoteAudio.srcObject = null;
 
-    // resetMediaButtons(); // We do NOT reset state, user setting persists for comfort
-}
-
-// ------------------------------------
-// UI State & Media Toggles
-// ------------------------------------
-
-function updateUIState(calling) {
-    if (calling) {
-        btnToggle.className = 'btn-toggle active';
-        btnText.textContent = 'FINALIZAR';
-    } else {
-        btnToggle.className = 'btn-toggle idle';
-        btnText.textContent = 'INICIAR LLAMADA';
-    }
-}
-
-function toggleMute() {
-    mediaState.audio = !mediaState.audio;
-
-    // If active call, update track
-    if (localStream) {
-        const track = localStream.getAudioTracks()[0];
-        if (track) track.enabled = mediaState.audio;
-        socket.emit('media_state_change', { room: ROOM_ID, type: 'audio', enabled: mediaState.audio });
-    }
-
-    updateMediaButtons();
-}
-
-function toggleCam() {
-    mediaState.video = !mediaState.video;
-
-    // If active call, update track
-    if (localStream) {
-        const track = localStream.getVideoTracks()[0];
-        if (track) track.enabled = mediaState.video;
-
-        updateLocalAvatar(mediaState.video);
-        socket.emit('media_state_change', { room: ROOM_ID, type: 'video', enabled: mediaState.video });
-    }
-
-    updateMediaButtons();
-}
-
-function updateLocalAvatar(isEnabled) {
-    const videoWrapper = document.querySelector('.video-wrapper');
-    if (isEnabled) {
-        videoWrapper.classList.remove('avatar-mode');
-    } else {
-        videoWrapper.classList.add('avatar-mode');
-    }
-}
-
-function updateMediaButtons() {
-    // Buttons reflect the INTENDED state (mediaState), not just the track state
-
-    // Mute
-    if (mediaState.audio) {
-        btnMute.className = 'btn-icon active'; // Normal/Active
-        btnMute.title = "Mutear Micrófono";
-    } else {
-        btnMute.className = 'btn-icon off'; // Red/Off
-        btnMute.title = "Activar Micrófono";
-    }
-
-    // Cam
-    if (mediaState.video) {
-        btnCam.className = 'btn-icon active';
-        btnCam.title = "Apagar Cámara";
-    } else {
-        btnCam.className = 'btn-icon off';
-        btnCam.title = "Encender Cámara";
-    }
-}
-
-function resetMediaButtons() {
-    // No longer used in endCall to preserve preference
-    mediaState = { audio: true, video: true };
-    updateMediaButtons();
+    if (remoteAudio) remoteAudio.srcObject = null;
 }

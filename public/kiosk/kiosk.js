@@ -76,7 +76,13 @@ setInterval(updateWeather, 600000); // 10 mins
 
 // Join Room / Register
 const ROOM_ID = 'sentinel-room';
-socket.emit('register', 'kiosk');
+
+// Get Kiosk ID from URL (e.g. ?id=admin) - Default to 'admin'
+const urlParams = new URLSearchParams(window.location.search);
+const kioskId = urlParams.get('id') || 'admin';
+
+console.log(`Registering as Kiosk: ${kioskId}`);
+socket.emit('register', { role: 'kiosk', id: kioskId });
 
 socket.on('call_incoming', async () => {
     console.log("Incoming Call...");

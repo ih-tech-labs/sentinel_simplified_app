@@ -74,144 +74,215 @@ main {
     padding: 20px 0;
 }
 
-.grid-container {
-    display: flex;
+/* GRID & CARDS */
+.grid-container.multi-kiosk {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    /* Two equal columns */
     gap: 30px;
     width: 100%;
-    max-width: 1000px;
+    max-width: 1200px;
     height: 60vh;
-    /* Controlled height */
-    align-items: stretch;
 }
 
-.panel {
+.kiosk-card {
     background: var(--panel-bg);
     border-radius: 16px;
     border: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    transition: border-color 0.3s ease;
-}
-
-.panel-header {
-    padding: 15px 20px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    letter-spacing: 1px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-/* Video Panel */
-.video-panel {
-    flex: 2;
     position: relative;
+    transition: all 0.3s ease;
+}
+
+.kiosk-card.active-alarm {
+    border: 2px solid var(--danger-color);
+    box-shadow: 0 0 20px rgba(255, 59, 48, 0.2);
+    animation: pulseAlarm 1.5s infinite;
+}
+
+@keyframes pulseAlarm {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(255, 59, 48, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 59, 48, 0);
+    }
+}
+
+.card-header {
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.kiosk-name {
+    font-weight: 600;
+    letter-spacing: 1px;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #333;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+.status-dot.online {
+    background: var(--success-color);
+    box-shadow: 0 0 8px var(--success-color);
+}
+
+.status-dot.offline {
+    background: var(--danger-color);
 }
 
 .video-wrapper {
-    flex-grow: 1;
-    position: relative;
+    flex: 1;
     background: #000;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-video {
+.rtsp-canvas {
     width: 100%;
     height: 100%;
-    object-fit: cover;
-    display: block;
-    /* Removes bottom space */
+    object-fit: contain;
 }
 
-.mirror {
-    transform: scaleX(-1);
-}
-
-/* Avatar Styling */
-.avatar-placeholder,
-.idle-placeholder {
+.overlay-msg {
     position: absolute;
+    color: #666;
+    font-size: 0.8rem;
+    pointer-events: none;
+}
+
+.card-footer {
+    padding: 15px;
+    display: flex;
+    gap: 10px;
+    border-top: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.btn-call {
+    flex: 1;
+    background: var(--text-primary);
+    color: var(--bg-color);
+    border: none;
+    border-radius: 8px;
+    padding: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.btn-call:hover {
+    background: #fff;
+    transform: translateY(-2px);
+}
+
+.btn-test-mini {
+    background: transparent;
+    border: 1px solid #444;
+    color: #888;
+    padding: 0 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.btn-test-mini:hover {
+    border-color: var(--text-primary);
+    color: var(--text-primary);
+}
+
+/* MODAL FOR ACTIVE CALL */
+#call-modal {
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+    z-index: 999;
     display: flex;
-    flex-direction: column;
     justify-content: center;
     align-items: center;
-    background: #111;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    pointer-events: none;
-    gap: 15px;
 }
 
-.idle-placeholder {
-    opacity: 1;
-    /* Visible by default (when not calling) */
-    background: #0f0f0f;
-    z-index: 2;
-    /* On top of video and avatar */
+#call-modal.hidden {
+    display: none;
 }
 
-.idle-placeholder.hidden {
-    opacity: 0;
-}
-
-.avatar-icon,
-.idle-icon {
-    width: 80px;
-    height: 80px;
-    color: #333;
-}
-
-.idle-placeholder span {
-    color: #444;
-    font-size: 0.9rem;
-    font-weight: 500;
-}
-
-.video-wrapper.avatar-mode .avatar-placeholder {
-    opacity: 1;
-}
-
-.video-wrapper.avatar-mode video {
-    opacity: 0;
-}
-
-
-/* RTSP Panel */
-.rtsp-panel {
-    flex: 2;
-    /* Increased size to match video panel if possible, or keep 1? User asked for video. Let's make it equal. */
-    position: relative;
-    background: #000;
-}
-
-.rtsp-wrapper {
-    width: 100%;
-    height: 100%;
-    position: relative;
+.call-content {
+    background: #1a1a1a;
+    width: 80%;
+    max-width: 800px;
+    height: 80%;
+    /* Large view */
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
     display: flex;
-    /* Centering */
-    justify-content: center;
+    flex-direction: column;
+    padding: 20px;
+    position: relative;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.call-content h2 {
+    margin: 0 0 15px 0;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.call-content video {
+    flex: 1;
+    width: 100%;
+    border-radius: 10px;
     background: #000;
 }
 
-#video-canvas {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    /* Keep aspect ratio */
+.call-controls {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
 }
 
-.rtsp-overlay {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #666;
-    font-size: 0.8rem;
+.btn-danger {
+    background: var(--danger-color);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 30px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.btn-danger:hover {
+    background: #ff5e55;
+    transform: scale(1.05);
 }
 
 /* Config Button */
