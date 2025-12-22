@@ -5,6 +5,12 @@
 
 echo "Checking dependencies..."
 
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
 # Update System
 sudo apt-get update
 
@@ -41,40 +47,90 @@ else
     echo "Cloudflared is already installed."
 fi
 
-# CLOUDFLARE CONFIGURATION RESTORE
-# Moves credentials from user home (if manually authed) to system folder
-echo "Checking for Cloudflare credentials in home..."
-if [ -d "$HOME/.cloudflared" ]; then
-    echo "Found local credentials. Moving to /etc/cloudflared (Requires SUDO)..."
-    sudo mkdir -p /etc/cloudflared
-    sudo cp -n $HOME/.cloudflared/*.json /etc/cloudflared/ 2>/dev/null || true
-    
-    # Create Config for Sentinel if not exists
-    if [ ! -f "/etc/cloudflared/config.yml" ]; then
-        echo "Creating config.yml..."
-        # Finds the first JSON file to use as credential
-        CRED_FILE=$(ls /etc/cloudflared/*.json | head -n 1)
-        if [ -n "$CRED_FILE" ]; then
-            UUID=$(basename "$CRED_FILE" .json)
-            sudo tee /etc/cloudflared/config.yml > /dev/null <<EOF
+# CLOUDFLARE CONFIGURATION (AGREESIVE RESET)
+echo "------------------------------------------------"
+echo "♻️  Reiniciando configuración de Cloudflare (Modo: Destruir y Recrear)..."
+
+# 0. Check Login (cert.pem)
+if [ ! -f "$HOME/.cloudflared/cert.pem" ]; then
+    echo -e "${RED}❌ Error: No estás logueado en Cloudflare.${NC}"
+    echo -e "${YELLOW}Por favor ejecuta: ${GREEN}cloudflared tunnel login${YELLOW} y autoriza el dominio.${NC}"
+    echo "Luego vuelve a correr este instalador."
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Credenciales de usuario detectadas.${NC}"
+
+# 1. Stop and Clean Service
+echo "Deteniendo servicios anteriores..."
+sudo systemctl stop cloudflared 2>/dev/null
+sudo cloudflared service uninstall 2>/dev/null
+# Clean /etc/cloudflared to be sure
+sudo rm -rf /etc/cloudflared/*.json
+sudo rm -rf /etc/cloudflared/*.yml
+sudo rm -rf /etc/cloudflared/*.pem
+
+# 2. Delete existing tunnel if exists
+TUNNEL_NAME="sentinel"
+if cloudflared tunnel list | grep -q "$TUNNEL_NAME"; then
+    echo "Eliminando túnel anterior '$TUNNEL_NAME'..."
+    cloudflared tunnel delete -f "$TUNNEL_NAME"
+fi
+
+# 3. Create Tunnel
+echo "Creando nuevo túnel '$TUNNEL_NAME'..."
+cloudflared tunnel create "$TUNNEL_NAME"
+if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ Falló la creación del túnel. Revisa si el nombre está en conflicto.${NC}"
+    exit 1
+fi
+
+# 4. Route DNS (Force)
+DOMAIN="sentinel.ihtechlabs.com"
+echo "Enrutando DNS ($DOMAIN)..."
+# Force route creation (-f might not be needed if tunnel is new, but safety first)
+cloudflared tunnel route dns -f "$TUNNEL_NAME" "$DOMAIN"
+
+if [ $? -ne 0 ]; then
+   echo -e "${RED}❌ Falló la ruta DNS.${NC}"
+fi
+
+# 5. Service Configuration
+echo "Configurando servicio..."
+sudo mkdir -p /etc/cloudflared
+sudo cp "$HOME/.cloudflared/cert.pem" /etc/cloudflared/
+# Move the NEWLY created credential JSON
+sudo cp "$HOME/.cloudflared"/*.json /etc/cloudflared/
+
+# Get UUID (The newly created JSON in ~/.cloudflared)
+# We find the specific JSON for this tunnel we just created.
+# cloudflared tunnel create generates a file UUID.json.
+# We can find it by looking for the most recent JSON file in .cloudflared
+CRED_FILE=$(ls -t "$HOME/.cloudflared/"*.json | head -n 1)
+if [ -z "$CRED_FILE" ]; then
+    echo -e "${RED}❌ No se encontró archivo de credenciales JSON.${NC}"
+    exit 1
+fi
+UUID=$(basename "$CRED_FILE" .json)
+
+echo "Generando config.yml para Tunnel ID: $UUID"
+sudo tee /etc/cloudflared/config.yml > /dev/null <<EOF
 tunnel: $UUID
-credentials-file: $CRED_FILE
+credentials-file: /etc/cloudflared/$UUID.json
 ingress:
-  - hostname: sentinel.ihtechlabs.com
+  - hostname: $DOMAIN
     service: http://localhost:3000
   - service: http_status:404
 EOF
-            echo "Config created for Tunnel ID: $UUID"
-        fi
-    fi
 
-    # Install Service
-    echo "Installing Cloudflared Service..."
-    sudo cloudflared service install 2>/dev/null || true
-    sudo systemctl restart cloudflared
-else
-    echo "No local credentials found. Please run 'cloudflared tunnel login' manually if this is a fresh install."
-fi
+# 6. Install Service
+echo "Instalando servicio..."
+sudo cloudflared service install
+sudo systemctl daemon-reload
+sudo systemctl enable cloudflared
+sudo systemctl restart cloudflared
+
+echo -e "${GREEN}✅ Cloudflare recreado y servicio corriendo.${NC}"
 
 # Create Project Directory if it doesn't exist
 # We assume the script is in the project root or we are moving it there.
@@ -122,58 +178,3 @@ fi
 
 
 echo "Server Setup Complete."
-
-# Configuration
-INSTALL_DIR="/home/develop/sentinel_simplified_app"
-AUTOSTART_DIR="/home/develop/.config/autostart"
-
-echo -e "${YELLOW}📂 Directorio de instalación: $INSTALL_DIR${NC}"
-
-# ... (Previous dependencies install sections remain the same) ...
-
-# 5. Setup Scripts & Assets
-echo -e "${YELLOW}🛠️  Configurando Scripts...${NC}"
-mkdir -p "$INSTALL_DIR/scripts"
-
-# Move GPIO Script if exists in assets
-if [ -f "$INSTALL_DIR/public/assets/GPIO_control.py" ]; then
-    cp "$INSTALL_DIR/public/assets/GPIO_control.py" "$INSTALL_DIR/scripts/"
-    echo -e "${GREEN}   ✅ GPIO Control script movido correctamente.${NC}"
-elif [ -f "$INSTALL_DIR/scripts/GPIO_control.py" ]; then
-     echo -e "${GREEN}   ✅ GPIO Control script ya existe en scripts/.${NC}"
-else
-    echo -e "${YELLOW}   ⚠️  GPIO_control.py no encontrado.${NC}"
-fi
-
-# Make startup script executable
-chmod +x "$INSTALL_DIR/start_kiosk.sh"
-
-
-# 6. Configure Autostart (LXDE)
-echo -e "${YELLOW}🖥️  Configurando Autostart...${NC}"
-mkdir -p "$AUTOSTART_DIR"
-
-cat > "$AUTOSTART_DIR/sentinel.desktop" <<EOL
-[Desktop Entry]
-Type=Application
-Name=Sentinel Kiosk
-Exec=$INSTALL_DIR/start_kiosk.sh
-StartupNotify=false
-Terminal=false
-Hidden=false
-EOL
-
-echo -e "${GREEN}   ✅ Autostart configurado para ejecutar start_kiosk.sh${NC}"
-
-# 7. Configure PM2 for Server
-echo -e "${YELLOW}⚙️  Configurando PM2...${NC}"
-cd "$INSTALL_DIR"
-pm2 start src/server.js --name "sentinel-server"
-pm2 save
-
-echo -e "${BLUE}==============================================${NC}"
-echo -e "${GREEN}   INSTALACIÓN COMPLETADA EXITOSAMENTE 🚀${NC}"
-echo -e "${BLUE}==============================================${NC}"
-echo -e "Para finalizar:"
-echo -e "1. Ejecuta: ${YELLOW}pm2 startup${NC} y sigue las instrucciones para que el servidor inicie al boot."
-echo -e "2. Reinicia la Raspberry Pi: ${YELLOW}sudo reboot${NC}"
