@@ -90,10 +90,7 @@ function initPlayer() {
 // Start player on load
 initPlayer();
 
-// Config Button
-document.getElementById('btn-config-rtsp').onclick = () => {
-    alert("Para cambiar la URL del RTSP, edita la variable GLOBAL en 'src/stream.js' en el servidor y reinicia el servicio.");
-};
+
 
 socket.on('disconnect', () => {
     kioskStatus.className = 'status-badge offline';
