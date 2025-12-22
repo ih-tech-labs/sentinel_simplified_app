@@ -99,22 +99,7 @@ main {
     color: var(--text-primary);
 }
 
-.status-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #333;
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
-}
 
-.status-dot.online {
-    background: var(--success-color);
-    box-shadow: 0 0 8px var(--success-color);
-}
-
-.status-dot.offline {
-    background: var(--danger-color);
-}
 
 .video-wrapper {
     flex: 1;
@@ -283,33 +268,68 @@ header {
     box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
 }
 
-/* Round Buttons (Microphone/Camera) */
-.btn-icon,
-.btn-round {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
+/* Control Buttons - Robust Style (V3 Inspired) */
+.btn-ctrl {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
     border: none;
+    background: #252525;
+    color: white;
     cursor: pointer;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 1.2rem;
-    transition: all 0.2s;
+    font-size: 1.5rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
-.btn-icon.active,
-.btn-round.active {
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
+.btn-ctrl:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4);
 }
 
-.btn-icon.off,
-.btn-round.off {
+.btn-ctrl.active {
+    background: #333;
+    border: 1px solid #555;
+    color: white;
+    /* Ensure icon is white */
+}
+
+/* Off State (Red like in v3?) or just Dark? User said "minimalist but functional" */
+/* Let's make OFF explicitly red/crossed */
+.btn-ctrl.off {
     background: var(--danger-color);
     color: white;
     border: 1px solid var(--danger-color);
+    position: relative;
+}
+
+.btn-ctrl.off .ctrl-icon {
+    opacity: 0.7;
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: inline-block;
+}
+
+.status-badge.online {
+    background: var(--success-color);
+    color: #000;
+    box-shadow: 0 0 10px rgba(52, 199, 89, 0.4);
+}
+
+.status-badge.offline {
+    background: var(--danger-color);
+    color: white;
 }
 
 /* Modal Controls Layout */

@@ -15,15 +15,16 @@
     <div class="container">
         <!-- Header -->
         <header>
-            <div class="brand-area">
-                <div class="brand">SENTINEL</div>
-                <div class="status-badge offline" id="kiosk-status">OFFLINE</div>
-            </div>
+            <div class="brand">SENTINEL</div>
 
             <!-- Global Media Controls (Pre-Call settings) -->
             <div class="global-controls">
-                <button id="btn-global-mute" class="btn-icon active" title="Micrófono Activo">🎤</button>
-                <button id="btn-global-cam" class="btn-icon active" title="Cámara Activa">📷</button>
+                <button id="btn-global-mute" class="btn-ctrl active" title="Micrófono Activo">
+                    <span class="ctrl-icon">🎤</span>
+                </button>
+                <button id="btn-global-cam" class="btn-ctrl active" title="Cámara Activa">
+                    <span class="ctrl-icon">📷</span>
+                </button>
             </div>
         </header>
 
@@ -34,7 +35,7 @@
                 <div class="kiosk-card" id="card-admin">
                     <div class="card-header">
                         <span class="kiosk-name">ADMINISTRACIÓN</span>
-                        <div class="status-dot offline" id="status-admin"></div>
+                        <div class="status-badge offline" id="status-admin">OFFLINE</div>
                     </div>
 
                     <!-- RTSP Player Container -->
@@ -56,7 +57,7 @@
                 <div class="kiosk-card" id="card-tenis">
                     <div class="card-header">
                         <span class="kiosk-name">HOUSE TENIS</span>
-                        <div class="status-dot offline" id="status-tenis"></div>
+                        <div class="status-badge offline" id="status-tenis">OFFLINE</div>
                     </div>
 
                     <!-- RTSP Player Container -->
@@ -85,8 +86,12 @@
                     <div class="call-controls">
                         <!-- In-Call Media Toggles -->
                         <div class="media-toggles">
-                            <button id="btn-modal-mute" class="btn-round active">🎤</button>
-                            <button id="btn-modal-cam" class="btn-round active">📷</button>
+                            <button id="btn-modal-mute" class="btn-ctrl active">
+                                <span class="ctrl-icon">🎤</span>
+                            </button>
+                            <button id="btn-modal-cam" class="btn-ctrl active">
+                                <span class="ctrl-icon">📷</span>
+                            </button>
                         </div>
 
                         <div class="spacer"></div>

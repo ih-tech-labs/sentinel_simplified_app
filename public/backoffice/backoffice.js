@@ -78,7 +78,8 @@ socket.on('kiosk_status', (data) => {
 function updateStatus(id, isOnline) {
     const badge = document.getElementById(`status-${id}`);
     if (badge) {
-        badge.className = isOnline ? 'status-dot online' : 'status-dot offline';
+        badge.className = isOnline ? 'status-badge online' : 'status-badge offline';
+        badge.textContent = isOnline ? 'ONLINE' : 'OFFLINE';
     }
 }
 
