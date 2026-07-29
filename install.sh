@@ -446,6 +446,15 @@ echo ""
 confirm "¿Confirmás e instalo?" "s" || die "Cancelado. No se escribió nada."
 
 # ===========================================================================
+step "Dependencias de Node"
+# ===========================================================================
+cd "$APP_DIR"
+npm install --omit=dev --no-audit --no-fund 2>&1 | tail -3 || die "Falló npm install"
+ok "Paquetes instalados"
+for f in src/*.js; do node --check "$f" >/dev/null 2>&1 || die "Error de sintaxis en $f"; done
+ok "Código verificado"
+
+# ===========================================================================
 step "Escribiendo configuración"
 # ===========================================================================
 mkdir -p "$CONFIG_DIR" "$DATA_DIR"
@@ -474,10 +483,13 @@ fs.writeFileSync(process.argv[1], JSON.stringify({ site: process.env.SENTINEL_SI
 chmod 600 "$CAMERAS_JSON"
 ok "config/cameras.json ${D}(las URLs RTSP viven acá)${N}"
 
+# src/hash.js no depende de npm: funciona aunque todavía no se haya corrido
+# `npm install`. Antes esto usaba src/auth.js, que arrastra config.js -> dotenv,
+# y la instalación se moría acá con "Cannot find module 'dotenv'".
 AUTH_HASH="$(node -e '
   const { hashPassword } = require(process.argv[1]);
   process.stdout.write(hashPassword(process.argv[2]));
-' "$APP_DIR/src/auth.js" "$AUTH_PASSWORD")" || die "No se pudo generar el hash"
+' "$APP_DIR/src/hash.js" "$AUTH_PASSWORD")" || die "No se pudo generar el hash"
 [ -n "$AUTH_HASH" ] || die "El hash salió vacío"
 SESSION_SECRET="$(node -e 'process.stdout.write(require("crypto").randomBytes(32).toString("hex"))')"
 
@@ -535,15 +547,6 @@ EOF
 chmod 600 "$ENV_FILE"
 ok ".env ${D}(contraseña hasheada, nunca en texto plano)${N}"
 unset SENTINEL_CAMS SENTINEL_SITE
-
-# ===========================================================================
-step "Dependencias de Node"
-# ===========================================================================
-cd "$APP_DIR"
-npm install --omit=dev --no-audit --no-fund 2>&1 | tail -3 || die "Falló npm install"
-ok "Paquetes instalados"
-for f in src/*.js; do node --check "$f" >/dev/null 2>&1 || die "Error de sintaxis en $f"; done
-ok "Código verificado"
 
 # ===========================================================================
 step "Servicios"

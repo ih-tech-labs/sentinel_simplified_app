@@ -14,48 +14,20 @@
 const crypto = require('crypto');
 const config = require('./config');
 
-const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1, keylen: 64 };
+// El hasheo vive en su propio modulo, sin dependencias de npm, para que el
+// instalador pueda generar la contrasena antes de correr `npm install`.
+const { hashPassword, verifyPassword: verifyHash, safeEqual } = require('./hash');
 
 // ---------------------------------------------------------------------------
-// Password hashing
+// Password
 // ---------------------------------------------------------------------------
-
-/** Genera "saltHex:hashHex" para guardar en .env */
-function hashPassword(password, saltHex) {
-  const salt = saltHex ? Buffer.from(saltHex, 'hex') : crypto.randomBytes(16);
-  const derived = crypto.scryptSync(password, salt, SCRYPT_PARAMS.keylen, {
-    N: SCRYPT_PARAMS.N,
-    r: SCRYPT_PARAMS.r,
-    p: SCRYPT_PARAMS.p,
-    maxmem: 64 * 1024 * 1024,
-  });
-  return `${salt.toString('hex')}:${derived.toString('hex')}`;
-}
-
-function safeEqual(a, b) {
-  const ba = Buffer.from(String(a));
-  const bb = Buffer.from(String(b));
-  if (ba.length !== bb.length) {
-    // Comparacion dummy para mantener tiempo constante
-    crypto.timingSafeEqual(ba, ba);
-    return false;
-  }
-  return crypto.timingSafeEqual(ba, bb);
-}
 
 function verifyPassword(password) {
   if (config.AUTH_HASH && config.AUTH_HASH.includes(':')) {
-    const [saltHex, expected] = config.AUTH_HASH.split(':');
-    let candidate;
-    try {
-      candidate = hashPassword(password, saltHex).split(':')[1];
-    } catch (_) {
-      return false;
-    }
-    return safeEqual(candidate, expected);
+    return verifyHash(password, config.AUTH_HASH);
   }
   if (config.AUTH_PLAIN) {
-    console.warn('[AUTH] Usando AUTH_PASSWORD en texto plano. Genera AUTH_HASH con: npm run hash');
+    console.warn('[AUTH] Usando AUTH_PASSWORD en texto plano. Genera AUTH_HASH con: sentinel password');
     return safeEqual(password, config.AUTH_PLAIN);
   }
   console.error('[AUTH] No hay AUTH_HASH ni AUTH_PASSWORD configurados. Login deshabilitado.');

@@ -299,7 +299,7 @@ cmd_password() {
   hash="$(node -e '
     const { hashPassword } = require(process.argv[1]);
     process.stdout.write(hashPassword(process.argv[2]));
-  ' "$APP_DIR/src/auth.js" "$pass")" || { err "No se pudo generar el hash"; return 1; }
+  ' "$APP_DIR/src/hash.js" "$pass")" || { err "No se pudo generar el hash"; return 1; }
   [ -z "$hash" ] && { err "El hash salió vacío"; return 1; }
 
   cp "$ENV_FILE" "$ENV_FILE.bak-$(date +%Y%m%d-%H%M%S)"
