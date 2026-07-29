@@ -822,8 +822,19 @@ body.mono-cam .layout {
   overflow: hidden;
 }
 
+/* flex-basis: 0, no auto.
+   Con `auto` la base del panel es la altura de su contenido: con 30 eventos
+   el registro pedía cientos de píxeles y el navegador se los sacaba al panel
+   de dispositivos, que quedaba recortado. Con base 0 el panel toma sólo el
+   espacio sobrante y la lista scrollea adentro. */
 .panel-grow {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  min-height: 120px;
+}
+
+/* Los paneles fijos no se encogen nunca */
+.side>.panel:not(.panel-grow) {
+  flex: 0 0 auto;
 }
 
 .panel-head {

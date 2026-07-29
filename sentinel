@@ -3,7 +3,7 @@
 #  sentinel · comando único de operación
 #
 #      sentinel status              estado general del sistema
-#      sentinel diagnose [qué]      diagnóstico (all | gpio | tunnel | video)
+#      sentinel diagnose [qué]      diagnóstico (all | gpio | tunnel | webhook | video)
 #      sentinel tunnel <acción>     setup <dominio> | status | clean | delete <nombre> | list
 #      sentinel rotate [grados]     rotación de pantalla (0 | 90 | 180 | 270)
 #      sentinel kiosk [id]          abrir el kiosko en esta pantalla
@@ -83,6 +83,7 @@ cmd_diagnose() {
   case "${1:-all}" in
     gpio|luces)    . "$SENTINEL_HOME/lib/gpio.sh";   gpio_diagnose "$([ "${2:-}" = "--fix" ] && echo 1 || echo 0)" ;;
     tunnel|tunel)  . "$SENTINEL_HOME/lib/tunnel.sh"; tunnel_status ;;
+    webhook|verkada) . "$SENTINEL_HOME/lib/webhook.sh"; webhook_diagnose ;;
     video)
       local bg="$APP_DIR/public/assets/background.mp4"
       banner "VIDEO DE FONDO"
@@ -113,6 +114,7 @@ cmd_diagnose() {
       info "Diagnósticos específicos:"
       info "  sentinel diagnose gpio    · control de luces"
       info "  sentinel diagnose tunnel  · acceso desde internet"
+      info "  sentinel diagnose webhook · alarmas de Verkada"
       info "  sentinel diagnose video   · video de fondo del kiosko"
       echo ""
       return $rc ;;

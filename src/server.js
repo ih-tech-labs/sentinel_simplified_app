@@ -246,8 +246,25 @@ app.post('/verkada-webhook', validateVerkada, (req, res) => {
   const cam = cameras.byDeviceId(deviceId);
 
   if (!cam) {
-    console.log(`[WEBHOOK] Cámara no configurada (${deviceId}), ignorado`);
-    return res.status(200).json({ status: 'ignored', reason: 'unknown_camera' });
+    // Este es el segundo tropiezo clásico después de la URL: la firma valida,
+    // la alarma llega, pero el device_id no coincide con ninguna cámara y el
+    // evento se descarta en silencio. Imprimimos el ID y el paso exacto.
+    console.log('');
+    console.log('  ┌──────────────────────────────────────────────────────────');
+    console.log('  │ ⚠️  ALARMA RECIBIDA DE UNA CÁMARA NO CONFIGURADA');
+    console.log('  │');
+    console.log(`  │ device_id : ${deviceId}`);
+    console.log(`  │ evento    : ${eventType}`);
+    console.log('  │');
+    console.log('  │ La firma es correcta, pero ese device_id no está en');
+    console.log('  │ config/cameras.json, así que el evento se ignora.');
+    console.log('  │');
+    console.log('  │ Copiá ese device_id al campo "deviceId" de tu cámara:');
+    console.log(`  │   nano ${path.join(config.ROOT, 'config', 'cameras.json')}`);
+    console.log('  │   ./sentinel restart server');
+    console.log('  └──────────────────────────────────────────────────────────');
+    console.log('');
+    return res.status(200).json({ status: 'ignored', reason: 'unknown_camera', deviceId });
   }
 
   if (Array.isArray(cam.allowedEvents) && !cam.allowedEvents.includes(eventType)) {

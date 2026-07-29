@@ -30,6 +30,7 @@ sentinel diagnose            # revisa todo y dice dónde se corta
 sentinel diagnose gpio       # sólo el control de luces
 sentinel diagnose gpio --fix # e intenta repararlo
 sentinel diagnose tunnel     # sólo el acceso desde internet
+sentinel diagnose webhook    # sólo las alarmas de Verkada
 sentinel diagnose video      # sólo el video de fondo
 ```
 
@@ -208,13 +209,27 @@ sentinel kiosk tenis                              # probarlo a mano
 
 **Las alarmas de Verkada no llegan**
 
-Tres cosas que fallan en silencio:
+```bash
+sentinel diagnose webhook
+```
 
-1. `VERKADA_SHARED_SECRET` vacío en `.env` → el webhook rechaza todo
-2. El `deviceId` de `cameras.json` no coincide con el que manda Verkada → `unknown_camera`
-3. El túnel caído → Verkada no llega
+Prueba los 7 eslabones con peticiones firmadas de verdad: secret, device_id, endpoint local, validación de firma, alarma completa, acceso desde internet y actividad reciente en el log.
 
-Para conseguir el `deviceId`: disparás una alarma real, mirás `sentinel logs server`, y ahí aparece.
+El fallo más común es **la URL cargada en Verkada**. Tiene que terminar en la ruta:
+
+```
+https://tu-dominio.ihtechlabs.com/verkada-webhook
+```
+
+Sólo el dominio no sirve: un POST a la raíz devuelve 404 y el evento se pierde sin dejar rastro en el log.
+
+Los otros tres, todos silenciosos:
+
+1. `VERKADA_SHARED_SECRET` vacío en `.env` → rechaza todo con 500
+2. El `deviceId` no coincide con el que manda Verkada → `unknown_camera`
+3. El tipo de evento no está en `allowedEvents` → `filtered_type`
+
+Para conseguir el `deviceId`: disparás una alarma real, mirás `sentinel logs server`, y el servidor te imprime un bloque con el ID listo para copiar.
 
 ---
 
