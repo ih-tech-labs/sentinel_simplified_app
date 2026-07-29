@@ -83,6 +83,21 @@
     siren: '#dc2626', emergency: '#f97316',
   };
 
+  // Copia local de los presets del servidor. La lista es estática y sirve
+  // para dibujar la botonera aunque el fetch falle: un panel vacío no le dice
+  // nada a nadie y es imposible de diagnosticar a distancia.
+  const PRESETS_FALLBACK = [
+    { key: 'off', label: 'Apagar todo', kind: 'off' },
+    { key: 'white', label: 'Luz blanca', kind: 'light' },
+    { key: 'warm', label: 'Luz cálida', kind: 'light' },
+    { key: 'blue', label: 'Azul', kind: 'light' },
+    { key: 'green', label: 'Verde', kind: 'light' },
+    { key: 'red', label: 'Rojo', kind: 'light' },
+    { key: 'yellow', label: 'Ámbar', kind: 'light' },
+    { key: 'siren', label: 'Sirena', kind: 'alarm' },
+    { key: 'emergency', label: 'Emergencia', kind: 'alarm' },
+  ];
+
   // ==========================================================================
   // Reloj
   // ==========================================================================
@@ -299,17 +314,27 @@
     bar.classList.add('show');
   }
 
+  // La alarma suena 5 segundos y se corta sola. Antes quedaba en loop hasta
+  // que alguien la reconociera: con varias alarmas seguidas era insoportable
+  // y terminaba con el operador silenciando la pestaña, que es lo peor que
+  // puede pasar en un sistema de monitoreo.
+  const ALARM_SECONDS = 5;
+  let alarmTimer = null;
+
   function playAlarm() {
     const a = $('alarmAudio');
+    if (alarmTimer) { clearTimeout(alarmTimer); alarmTimer = null; }
     a.currentTime = 0;
     a.loop = true;
     a.play().catch(() => {
       // El navegador bloquea autoplay hasta la primera interacción del usuario
       $('audio-gate').classList.add('show');
     });
+    alarmTimer = setTimeout(stopAlarm, ALARM_SECONDS * 1000);
   }
 
   function stopAlarm() {
+    if (alarmTimer) { clearTimeout(alarmTimer); alarmTimer = null; }
     const a = $('alarmAudio');
     a.pause();
     a.loop = false;
@@ -433,25 +458,38 @@
   // Control de dispositivos (Arduino)
   // ==========================================================================
 
+  function renderPresets(presets) {
+    const grid = $('preset-grid');
+    if (!grid) return;
+    grid.innerHTML = presets.map((p) => `
+      <button class="preset" data-preset="${esc(p.key)}" data-kind="${esc(p.kind)}" title="${esc(p.label)}">
+        <span class="swatch" style="background:${SWATCH[p.key] || '#334155'}"></span>
+        <span>${esc(p.label)}</span>
+      </button>
+    `).join('');
+    grid.onclick = async (e) => {
+      const btn = e.target.closest('button[data-preset]');
+      if (btn) await sendPreset(btn);
+    };
+  }
+
   async function loadPresets() {
+    // Se dibuja PRIMERO con la lista local. Si el servidor responde, se
+    // reemplaza por la suya. Así la botonera aparece siempre, incluso si la
+    // API falla o tarda.
+    renderPresets(PRESETS_FALLBACK);
     try {
       const res = await fetch('/api/devices/presets');
-      if (!res.ok) return;
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       const presets = await res.json();
-      $('preset-grid').innerHTML = presets.map((p) => `
-        <button class="preset" data-preset="${esc(p.key)}" data-kind="${esc(p.kind)}" title="${esc(p.label)}">
-          <span class="swatch" style="background:${SWATCH[p.key] || '#334155'}"></span>
-          <span>${esc(p.label)}</span>
-        </button>
-      `).join('');
-
-      $('preset-grid').onclick = async (e) => {
-        const btn = e.target.closest('button[data-preset]');
-        if (!btn) return;
-        await sendPreset(btn);
-      };
+      if (Array.isArray(presets) && presets.length) renderPresets(presets);
     } catch (err) {
-      console.warn('presets:', err);
+      console.warn('[presets]', err);
+      const fb = $('gpio-feedback');
+      if (fb) {
+        fb.className = 'gpio-feedback bad';
+        fb.textContent = 'No se pudo consultar el servidor (' + err.message + ')';
+      }
     }
   }
 
@@ -732,12 +770,18 @@
       if (chip) chip.textContent = data.site;
       document.title = `${data.site} · Centro de Monitoreo`;
     }
-    buildCards();
-    renderPresence();
-    renderTimeline();
-    renderStats(data.stats);
-    startPlayers();
-    loadPresets();
+    // Cada paso en su propio try: antes, si buildCards o startPlayers tiraban,
+    // loadPresets nunca llegaba a correr y el panel de dispositivos quedaba
+    // vacío sin ninguna pista de por qué.
+    const paso = (nombre, fn) => {
+      try { fn(); } catch (err) { console.error('[bootstrap] ' + nombre + ':', err); }
+    };
+    paso('presets', loadPresets);
+    paso('tarjetas', buildCards);
+    paso('presencia', renderPresence);
+    paso('eventos', renderTimeline);
+    paso('contadores', () => renderStats(data.stats));
+    paso('reproductores', startPlayers);
 
     // Si quedaron eventos sin reconocer al abrir, los marcamos visualmente
     state.events.filter((e) => !e.ack && e.severity === 'alert').forEach((e) => {

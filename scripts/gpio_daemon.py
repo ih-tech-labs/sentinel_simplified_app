@@ -88,6 +88,39 @@ def open_serial():
         return None
 
 
+def _reader_loop():
+    """
+    Lee de forma continua lo que el Arduino manda de vuelta.
+
+    Sin esto no hay forma de saber si el firmware está recibiendo bien: uno
+    escribe al puerto, no falla nada, y las luces no se mueven. Cualquier
+    respuesta, eco o mensaje de error del Arduino queda en el log con la
+    marca RX y se puede ver con `sentinel gpio monitor`.
+    """
+    buf = b""
+    while True:
+        try:
+            ser = _serial
+            if ser is None or not ser.is_open:
+                time.sleep(1)
+                continue
+            data = ser.read(128)
+            if not data:
+                continue
+            buf += data
+            while b"\n" in buf:
+                line, buf = buf.split(b"\n", 1)
+                text = line.decode(errors="replace").strip()
+                if text:
+                    print("[GPIO] RX <- %s" % text, flush=True)
+            if len(buf) > 512:
+                print("[GPIO] RX <- %s (sin fin de linea)" % buf.decode(errors="replace").strip(), flush=True)
+                buf = b""
+        except Exception as e:
+            print("[GPIO] Error leyendo: %s" % e, flush=True)
+            time.sleep(1)
+
+
 def send(frame):
     """Envia un frame. Reintenta una vez reabriendo el puerto si se cayo."""
     global _serial
@@ -98,8 +131,10 @@ def send(frame):
             if ser is None:
                 return False, "Arduino no detectado"
             try:
-                ser.write((frame + "\n").encode())
+                payload = (frame + "\n").encode()
+                ser.write(payload)
                 ser.flush()
+                print("[GPIO] TX -> %s  (%d bytes por %s)" % (frame, len(payload), ser.port), flush=True)
                 return True, frame
             except (SerialException, OSError) as e:
                 print(f"[GPIO] Error de escritura (intento {attempt}): {e}", flush=True)
@@ -178,6 +213,7 @@ def main():
                     open_serial()
 
     threading.Thread(target=reconnector, daemon=True).start()
+    threading.Thread(target=_reader_loop, daemon=True).start()
 
     with Server((args.host, args.port), Handler) as srv:
         print(f"[GPIO] Escuchando en {args.host}:{args.port}", flush=True)

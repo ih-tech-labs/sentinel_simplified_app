@@ -814,14 +814,24 @@ body.mono-cam .layout {
    flex-basis y min-height sólo movían el problema de lugar.
    Así no hay nada que repartir: cada panel ocupa lo que necesita y si no
    entra todo, se scrollea la columna. Aburrido y no se puede romper. */
+/* Flujo de bloque normal, SIN flexbox.
+   Los paneles se apilan uno abajo del otro con su altura natural. No hay
+   reparto de espacio, así que ningún panel puede quedar recortado ni vacío
+   por más eventos que tenga el registro. Si no entra todo, scrollea. */
 .side {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  display: block;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 3px;
+}
+
+.side>.panel {
+  margin-bottom: 14px;
+}
+
+.side>.panel:last-child {
+  margin-bottom: 0;
 }
 
 .panel {
@@ -832,11 +842,6 @@ body.mono-cam .layout {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-}
-
-/* Ningún panel se encoge: cada uno ocupa su altura natural */
-.side>.panel {
-  flex: 0 0 auto;
 }
 
 .panel-head {
@@ -920,7 +925,7 @@ body.mono-cam .layout {
 
 .panel-body {
   padding: 13px;
-  flex: 0 0 auto;
+  min-height: 44px;
 }
 
 /* --- Presets de luces --- */
@@ -928,6 +933,7 @@ body.mono-cam .layout {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 7px;
+  min-height: 40px;
 }
 
 .preset {

@@ -233,3 +233,60 @@ gpio_test() {
   info "¿No pasó nada? El problema está en el Arduino o el cableado."
   echo ""
 }
+
+# ---------------------------------------------------------------------------
+# gpio_monitor — ver en vivo lo que va y viene por el puerto serie
+# ---------------------------------------------------------------------------
+gpio_monitor() {
+  banner "MONITOR DEL ARDUINO"
+  echo -e "  ${BOLD}TX ->${N}  lo que Sentinel le manda al Arduino"
+  echo -e "  ${BOLD}RX <-${N}  lo que el Arduino contesta"
+  echo ""
+  info "Formato del frame:  R,G,B,W,WW,EFECTO,ARG1,ARG2"
+  info "Apretá botones en el tablero o usá otra terminal con:"
+  info "  ./sentinel gpio test"
+  echo ""
+  hr
+  echo -e "  ${D}Ctrl+C para salir${N}"
+  echo ""
+
+  if ! pm2_exists sentinel-gpio; then
+    err "El daemon sentinel-gpio no está en pm2"
+    info "./sentinel diagnose gpio --fix"
+    return 1
+  fi
+  pm2 logs sentinel-gpio --raw --lines 30
+}
+
+# ---------------------------------------------------------------------------
+# gpio_send — mandar un frame a mano y ver la respuesta
+# ---------------------------------------------------------------------------
+gpio_send_frame() {
+  local frame="$1"
+  if [ -z "$frame" ]; then
+    err "Falta el frame. Ej: ./sentinel gpio send 0,0,0,255,0,0,0,0"
+    echo ""
+    info "Presets equivalentes:"
+    info "  apagar    0,0,0,0,0,0,0,0"
+    info "  blanca    0,0,0,255,0,0,0,0"
+    info "  roja      255,0,0,0,0,0,0,0"
+    info "  sirena    255,0,0,0,0,1,0,0"
+    return 1
+  fi
+  if ! echo "$frame" | grep -qE '^-?[0-9]+(,-?[0-9]+){7}$'; then
+    err "Formato inválido. Son 8 números separados por comas."
+    info "R,G,B,W,WW,EFECTO,ARG1,ARG2"
+    return 1
+  fi
+  echo -e "  ${BOLD}TX ->${N} $frame"
+  local resp; resp="$(gpio_send "$frame")"
+  if [ -z "$resp" ] || [ "$resp" = "sin-nc" ]; then
+    err "El daemon no respondió"
+    info "./sentinel diagnose gpio"
+    return 1
+  fi
+  echo -e "  ${BOLD}<-${N}    $resp"
+  echo ""
+  info "Para ver qué contesta el Arduino: ./sentinel gpio monitor"
+  echo ""
+}

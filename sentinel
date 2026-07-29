@@ -6,6 +6,7 @@
 #      sentinel diagnose [qué]      diagnóstico (all | gpio | tunnel | webhook | video)
 #      sentinel tunnel <acción>     setup <dominio> | status | clean | delete <nombre> | list
 #      sentinel rotate [grados]     rotación de pantalla (0 | 90 | 180 | 270)
+#      sentinel gpio <acción>       monitor | test | send <frame>
 #      sentinel kiosk [id]          abrir el kiosko en esta pantalla
 #      sentinel logs [qué]          logs (server | gpio | tunnel | all)
 #      sentinel restart [qué]       reiniciar (all | server | gpio | tunnel)
@@ -386,6 +387,14 @@ case "$CMD" in
   diagnose|diag)       cmd_diagnose "$@" ;;
   tunnel|tunel)        cmd_tunnel "$@" ;;
   rotate|rotar)        . "$SENTINEL_HOME/lib/screen.sh"; screen_rotate "${1:-}" ;;
+  gpio|luces)
+    . "$SENTINEL_HOME/lib/gpio.sh"
+    case "${1:-monitor}" in
+      monitor|ver)   gpio_monitor ;;
+      test|prueba)   gpio_test ;;
+      send|enviar)   gpio_send_frame "${2:-}" ;;
+      *) err "Uso: sentinel gpio [monitor|test|send <frame>]"; exit 1 ;;
+    esac ;;
   kiosk|kiosko)        cmd_kiosk "$@" ;;
   logs|log)            cmd_logs "$@" ;;
   restart|reiniciar)   cmd_restart "$@" ;;

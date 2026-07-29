@@ -168,7 +168,19 @@ Si un túnel figura sin conexiones activas, cloudflared no logra salir a Cloudfl
 ```bash
 sentinel diagnose gpio        # revisa la cadena completa
 sentinel diagnose gpio --fix  # e intenta repararla
+sentinel gpio monitor         # ver en vivo qué va y viene por el puerto serie
+sentinel gpio test            # secuencia de colores
+sentinel gpio send 255,0,0,0,0,0,0,0   # mandar un frame a mano
 ```
+
+**`sentinel gpio monitor`** muestra las dos direcciones:
+
+```
+[GPIO] TX -> 0,0,0,255,0,0,0,0  (18 bytes por /dev/ttyACM0)
+[GPIO] RX <- ACK 0,0,0,255,0,0,0,0
+```
+
+`TX` es lo que Sentinel escribe. `RX` es lo que el Arduino contesta. Si ves `TX` pero nunca `RX`, el firmware no está respondiendo: puede estar recibiendo igual, o puede que el cableado sea de una sola vía. Si no ves ni `TX`, el problema está antes del puerto serie.
 
 La causa más frecuente y menos obvia: **pm2 hereda los grupos de la sesión que lo arrancó.** Si pm2 ya estaba levantado cuando el instalador agregó tu usuario a `dialout`, el daemon queda sin ese grupo aunque tu shell sí lo tenga. Un `pm2 restart` no alcanza:
 
