@@ -1,734 +1,1146 @@
-:root {
-    --bg-color: #0c0c0c;
-    --panel-bg: #141414;
-    --text-primary: #e0e0e0;
-    --text-secondary: #888;
-    --accent-color: #f0f0f0;
-    --danger-color: #ff3b30;
-    --success-color: #34c759;
-    --border-color: #222;
+/* ==========================================================================
+   Sentinel Backoffice · SOC / Command Center
+   ========================================================================== */
+
+html,
+body {
+  height: 100%;
 }
 
 body {
-    background-color: var(--bg-color);
-    color: var(--text-primary);
-    font-family: 'Inter', sans-serif;
-    margin: 0;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+  margin: 0;
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    padding: 0 40px;
-    box-sizing: border-box;
+h2,
+h3 {
+  margin: 0;
 }
 
-/* HEADER */
-
-
-
-/* MAIN CONTENT */
-main {
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px 0;
+button {
+  font-family: inherit;
 }
 
-/* Main Content Grid */
-.grid-container.multi-kiosk {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 30px;
-    /* Increased gap */
-    width: 100%;
-    max-width: 1600px;
-    /* Increased max-width */
-    height: auto;
+/* ==========================================================================
+   TOP BAR
+   ========================================================================== */
+
+.topbar {
+  flex: 0 0 auto;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 18px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--line);
+  z-index: 20;
 }
 
-.kiosk-card {
-    background: var(--panel-bg);
-    border-radius: 16px;
-    border: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    position: relative;
-    transition: all 0.3s ease;
-    height: 70vh;
-    /* Bigger Panels */
-}
-
-.kiosk-card.active-alarm {
-    border: 2px solid var(--danger-color);
-    box-shadow: 0 0 20px rgba(255, 59, 48, 0.2);
-    animation: pulseAlarm 1.5s infinite;
-}
-
-@keyframes pulseAlarm {
-    0% {
-        box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4);
-    }
-
-    70% {
-        box-shadow: 0 0 0 10px rgba(255, 59, 48, 0);
-    }
-
-    100% {
-        box-shadow: 0 0 0 0 rgba(255, 59, 48, 0);
-    }
-}
-
-.card-header {
-    padding: 15px 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border-color);
-    background: rgba(255, 255, 255, 0.03);
-}
-
-.kiosk-name {
-    font-weight: 600;
-    letter-spacing: 1px;
-    font-size: 0.9rem;
-    color: var(--text-primary);
-}
-
-
-/* Video Wrapper (RTSP & WebRTC) */
-.video-wrapper {
-    flex: 1;
-    background: #000;
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.rtsp-canvas {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.overlay-msg {
-    position: absolute;
-    color: #666;
-    font-size: 0.8rem;
-    pointer-events: none;
-}
-
-/* Call Interface (Overlay/Replacement) */
-.call-interface {
-    position: absolute;
-    top: 48px;
-    /* Below header */
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: transparent;
-    /* Allow RTSP to show through */
-    display: flex;
-    flex-direction: column;
-    z-index: 10;
-}
-
-.call-interface.hidden {
-    display: none;
-}
-
-.remote-video {
-    flex: 1;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-/* Local PIP (Near Controls / Bottom Right) */
-.local-pip {
-    position: absolute;
-    bottom: 80px;
-    right: 20px;
-    width: 160px;
-    height: 120px;
-    background: #000;
-    border: 1px solid #444;
-    border-radius: 8px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-    overflow: hidden;
-    z-index: 20;
-}
-
-.local-pip video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-/* Logo Overlay in PIP */
-.local-pip .logo-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: #1a1a1a;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: #555;
-}
-
-.local-pip .logo-overlay.hidden {
-    display: none;
-}
-
-/* In-Card Controls (Mini Styled) */
-.card-call-controls {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 15px;
-    z-index: 20;
-    background: rgba(0, 0, 0, 0.6);
-    padding: 10px 20px;
-    border-radius: 30px;
-    backdrop-filter: blur(5px);
-}
-
-.btn-ctrl-mini {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    border: none;
-    background: #333;
-    color: white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-ctrl-mini.active {
-    background: #333;
-    color: white;
-}
-
-.btn-ctrl-mini.off {
-    background: var(--danger-color);
-    color: white;
-}
-
-.btn-hangup-mini {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    border: none;
-    background: #ff3b30;
-    color: white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-}
-
-.btn-hangup-mini:hover {
-    background: #ff2d55;
-}
-
-.ctrl-icon-mini {
-    width: 22px;
-    height: 22px;
-}
-
-/* Hide Footer when calling? Yes, covered by overlay or we hide it */
-/* Actually, call-interface covers everything below header. */
-.card-footer {
-    padding: 15px;
-    display: flex;
-    gap: 10px;
-    border-top: 1px solid var(--border-color);
-    background: rgba(0, 0, 0, 0.2);
-}
-
-.btn-call {
-    flex: 1;
-    background: var(--text-primary);
-    color: var(--bg-color);
-    border: none;
-    border-radius: 8px;
-    padding: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: all 0.2s;
-}
-
-.btn-call:hover {
-    background: #fff;
-    transform: translateY(-2px);
-}
-
-.btn-test-mini {
-    background: transparent;
-    border: 1px solid #444;
-    color: #888;
-    padding: 0 15px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.8rem;
-}
-
-.btn-test-mini:hover {
-    border-color: var(--text-primary);
-    color: var(--text-primary);
-}
-
-/* MODAL FOR ACTIVE CALL */
-#call-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(5px);
-    z-index: 999;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-#call-modal.hidden {
-    display: none;
-}
-
-.call-content {
-    background: #1a1a1a;
-    width: 80%;
-    max-width: 800px;
-    height: 80%;
-    /* Large view */
-    border-radius: 20px;
-    border: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-    position: relative;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-}
-
-.call-content h2 {
-    margin: 0 0 15px 0;
-    font-size: 1.2rem;
-    color: var(--text-secondary);
-    text-align: center;
-}
-
-.call-content video {
-    flex: 1;
-    width: 100%;
-    border-radius: 10px;
-    background: #000;
-}
-
-/* HEADER & GLOBAL CONTROLS */
-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 30px;
-}
-
-.brand-area {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
-
-/* Brand / Logo */
 .brand {
-    font-family: 'Outfit', sans-serif;
-    font-weight: 700;
-    font-size: 1.5rem;
-    letter-spacing: 2px;
-    margin-top: 10px;
-    /* Slight adjustment downwards */
-    color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 0 0 auto;
 }
 
-/* Global Controls Centered */
-.global-controls {
-    grid-column: 1 / -1;
-    /* Span entire width */
-    display: flex;
-    justify-content: center;
-    gap: 30px;
-    margin: 20px auto 0;
-    width: 100%;
+.brand-glyph {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--accent-dim);
+  border-radius: 8px;
+  background: var(--accent-glow);
+  color: var(--accent);
 }
 
-/* ... Call Button ... */
-
-/* ... Control Buttons ... */
-
-/* Hangup Button - Square Red */
-.btn-hangup {
-    background: #ff3b30;
-    color: white;
+.brand-name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .22em;
+  color: var(--text-0);
 }
 
-.btn-hangup:hover {
-    background: #ff2d55;
-    box-shadow: 0 6px 15px rgba(255, 59, 48, 0.5);
+.brand-sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .14em;
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+  border-radius: 3px;
+  padding: 2px 5px;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.media-toggles {
-    display: flex;
-    gap: 30px;
-    /* Consistent spacing between all 3 buttons */
-    align-items: center;
-    justify-content: center;
+/* --- Telemetría --- */
+.telemetry {
+  display: flex;
+  gap: 6px;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
-/* Logo Overlay */
-#logo-overlay {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 15px;
-    z-index: 10;
-    pointer-events: none;
-    /* Let clicks pass through if needed */
-    color: rgba(255, 255, 255, 0.5);
-    font-weight: 600;
-    letter-spacing: 2px;
+.tele {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 5px 11px;
+  background: var(--bg-0);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  white-space: nowrap;
 }
 
-#logo-overlay.hidden {
-    display: none;
+.tele-k {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .13em;
+  color: var(--text-4);
 }
 
-/* When Logo is visible, we might want to ensure video black background? 
-   No, video element handles background. 
-   But if video is hidden/black, overlay shows.
-*/
-.btn-call {
-    flex: 1;
-    background: #007AFF;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: all 0.2s;
-    font-size: 0.9rem;
+.tele-v {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  min-width: 34px;
 }
 
-.btn-call:hover {
-    background: #0062cc;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+.tele-v.ok {
+  color: var(--ok);
 }
 
-/* Control Buttons - Robust Style (V3 Inspired) */
-.btn-ctrl {
-    width: 60px;
-    height: 60px;
-    border-radius: 12px;
-    border: none;
-    background: #252525;
-    color: white;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+.tele-v.warn {
+  color: var(--warn);
 }
 
-.btn-ctrl:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4);
-    background: #333;
+.tele-v.crit {
+  color: var(--danger);
 }
 
-.ctrl-icon {
-    width: 28px;
-    height: 28px;
-    fill: currentColor;
+/* --- Derecha --- */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 0 0 auto;
 }
 
-.btn-ctrl.active {
-    background: #252525;
-    color: white;
+.link-state {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: .13em;
+  color: var(--text-3);
 }
 
-/* Off State - Red Background */
-.btn-ctrl.off {
-    background: var(--danger-color);
-    color: white;
-    box-shadow: 0 4px 10px rgba(255, 59, 48, 0.4);
+.pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--idle);
 }
 
-/* .btn-ctrl.off .ctrl-icon: opacity ruled removed as we want full opacity */
-
-/* Status Badges */
-.status-badge {
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    display: inline-block;
+.link-state.online .pulse {
+  background: var(--ok);
+  box-shadow: 0 0 0 0 var(--ok-dim);
+  animation: pulse 2.4s infinite;
 }
 
-.status-badge.online {
-    background: var(--success-color);
-    color: #000;
-    box-shadow: 0 0 8px rgba(52, 199, 89, 0.4);
+.link-state.online {
+  color: var(--ok);
 }
 
-.status-badge.offline {
-    background: var(--danger-color);
-    color: white;
+.link-state.offline .pulse {
+  background: var(--danger);
 }
 
-/* Modal Controls Layout - CENTERED */
-.call-controls {
-    margin-top: 20px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    padding: 0 20px;
-    gap: 30px;
+.link-state.offline {
+  color: var(--danger);
 }
 
-.media-toggles {
-    display: flex;
-    gap: 15px;
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--ok-dim);
+  }
+
+  70% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
 }
 
-.spacer {
-    display: none;
-    /* Removed spacer */
+.clock {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-0);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 6px 5px 12px;
+  background: var(--bg-0);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.btn-logout {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+
+.btn-logout:hover {
+  background: var(--danger-glow);
+  color: var(--danger);
+}
+
+/* ==========================================================================
+   BANDA DE ALARMA
+   ========================================================================== */
+
+.alert-bar {
+  flex: 0 0 auto;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 18px;
+  background: var(--danger-glow);
+  border-bottom: 1px solid var(--danger-dim);
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .15em;
+  animation: alertFlash 1.6s ease-in-out infinite;
+}
+
+.alert-bar.show {
+  display: flex;
+}
+
+@keyframes alertFlash {
+
+  0%,
+  100% {
+    background: var(--danger-glow);
+  }
+
+  50% {
+    background: rgba(244, 63, 94, .2);
+  }
+}
+
+.alert-bar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+#alert-bar-ack {
+  margin-left: auto;
+  padding: 5px 13px;
+  border: 1px solid var(--danger-dim);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  cursor: pointer;
+}
+
+#alert-bar-ack:hover {
+  background: var(--danger);
+  color: var(--bg-0);
+}
+
+/* ==========================================================================
+   LAYOUT
+   ========================================================================== */
+
+.layout {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 14px;
+  padding: 14px;
+  min-height: 0;
+}
+
+.cams {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 11px;
+  flex: 0 0 auto;
+}
+
+.section-head h2 {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .19em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-4);
+  letter-spacing: .1em;
+}
+
+.cam-grid {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 14px;
+  align-content: start;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   MODO UN SOLO PUESTO
+   Con una única cámara la grilla queda desbalanceada, así que se centra la
+   tarjeta, se le da todo el alto disponible y el video pasa a ser el foco.
+   -------------------------------------------------------------------------- */
+
+.cam-grid.single {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 1180px;
+  width: 100%;
+  margin: 0 auto;
+  align-content: stretch;
+}
+
+.cam-grid.single .cam-card {
+  height: 100%;
+  max-height: 100%;
+}
+
+/* El escenario deja de tener aspect-ratio fijo y ocupa el alto sobrante */
+.cam-grid.single .cam-stage {
+  aspect-ratio: auto;
+  flex: 1 1 auto;
+  min-height: 260px;
+}
+
+.cam-grid.single .cam-head {
+  padding: 13px 16px;
+}
+
+.cam-grid.single .cam-name {
+  font-size: 14px;
+}
+
+.cam-grid.single .cam-foot {
+  padding: 13px 16px;
+}
+
+.cam-grid.single .btn {
+  padding: 10px 18px;
+  font-size: 11px;
+}
+
+.cam-grid.single .btn-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.cam-grid.single .call-pip {
+  width: 20%;
+  max-width: 190px;
+  right: 14px;
+  bottom: 14px;
+}
+
+.cam-grid.single .stage-tag,
+.cam-grid.single .call-timer {
+  font-size: 10px;
+  padding: 5px 10px;
+}
+
+/* Con un solo puesto el panel lateral puede ser un poco más angosto */
+body.mono-cam .layout {
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+/* Filtros: sin selector de puesto queda uno solo, a todo el ancho */
+.filters.one-col {
+  grid-template-columns: 1fr;
+}
+
+/* ==========================================================================
+   TARJETA DE CÁMARA
+   ========================================================================== */
+
+.cam-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  transition: border-color .2s;
+}
+
+.cam-card.alarm {
+  border-color: var(--danger);
+  animation: cardAlarm 1.4s ease-in-out infinite;
+}
+
+@keyframes cardAlarm {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 0 3px rgba(244, 63, 94, .22);
+  }
+}
+
+.cam-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--bg-2);
+  flex: 0 0 auto;
+}
+
+.cam-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cam-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  color: var(--text-0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cam-zone {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .11em;
+  color: var(--text-4);
+  text-transform: uppercase;
+}
+
+.cam-badges {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.badge-state {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  border: 1px solid var(--line-strong);
+  color: var(--idle);
+}
+
+.badge-state::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge-state.online {
+  color: var(--ok);
+  border-color: var(--ok-dim);
+  background: var(--ok-glow);
+}
+
+.badge-state.offline {
+  color: var(--text-4);
+}
+
+/* --- Área de video --- */
+.cam-stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: var(--bg-video);
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.cam-stage canvas,
+.cam-stage video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.stage-msg {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  background: var(--bg-video);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .16em;
+  color: var(--text-3);
+  text-transform: uppercase;
+  z-index: 2;
+}
+
+.stage-msg.hidden {
+  display: none;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Marca de esquina tipo CCTV */
+.stage-tag {
+  position: absolute;
+  left: 9px;
+  top: 9px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border-radius: 3px;
+  background: rgba(6, 9, 16, .72);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .12em;
+  color: var(--text-2);
+}
+
+.stage-tag .rec {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: blink 2s infinite;
+}
+
+@keyframes blink {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: .25;
+  }
+}
+
+/* --- Capa de llamada, encima del stream --- */
+.call-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: var(--bg-video);
+  display: none;
+}
+
+.call-layer.active {
+  display: block;
+}
+
+.call-layer .remote-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.call-pip {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 27%;
+  max-width: 130px;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-2);
+  z-index: 6;
+}
+
+.call-pip video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.pip-off {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: var(--bg-2);
+  color: var(--text-4);
+}
+
+.pip-off.show {
+  display: grid;
+}
+
+.call-timer {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 6;
+  padding: 4px 9px;
+  border-radius: 3px;
+  background: rgba(6, 9, 16, .8);
+  border: 1px solid var(--ok-dim);
+  color: var(--ok);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Pie de tarjeta --- */
+.cam-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-2);
+  border-top: 1px solid var(--line-soft);
+  flex: 0 0 auto;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--bg-1);
+  color: var(--text-1);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--bg-3);
+  border-color: var(--text-4);
+}
+
+.btn:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  flex: 1 1 auto;
+  border-color: var(--accent-dim);
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg-0);
+  border-color: var(--accent);
 }
 
 .btn-danger {
-    background: var(--danger-color);
-    color: white;
-    border: none;
-    padding: 12px 30px;
-    border-radius: 30px;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  flex: 1 1 auto;
+  border-color: var(--danger-dim);
+  background: var(--danger-glow);
+  color: var(--danger);
 }
 
-.btn-danger .icon {
-    transform: rotate(135deg);
-}
-
-/* Phone down icon */
-
-.btn-danger:hover {
-    background: #ff5e55;
-    transform: scale(1.05);
-}
-
-/* Config Button */
-.panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-/* Config Button Removed */
-
-/* FOOTER / CONTROLS */
-footer {
-    height: 100px;
-    display: flex;
-    align-items: center;
-    border-top: 1px solid var(--border-color);
-}
-
-.controls-wrapper {
-    display: flex;
-    width: 100%;
-    max-width: 1000px;
-    margin: 0 auto;
-    justify-content: space-between;
-    align-items: center;
-}
-
-/* Center Toggle Button */
-.main-control {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-}
-
-.btn-toggle {
-    height: 56px;
-    padding: 0 40px;
-    border-radius: 28px;
-    border: none;
-    font-family: inherit;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-    letter-spacing: 0.5px;
-}
-
-.btn-toggle.idle {
-    background: var(--text-primary);
-    color: var(--bg-color);
-}
-
-.btn-toggle.idle:hover {
-    transform: scale(1.05);
-    background: #fff;
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-}
-
-.btn-toggle.active {
-    background: var(--danger-color);
-    color: white;
-}
-
-.btn-toggle.active:hover {
-    background: #ff5e55;
-    transform: scale(1.05);
-    box-shadow: 0 0 20px rgba(255, 59, 48, 0.3);
-}
-
-/* Alarm State */
-.alarm-active {
-    border: 5px solid #ff0000 !important;
-    animation: alarmPulse 1s infinite;
-}
-
-@keyframes alarmPulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7);
-    }
-
-    70% {
-        box-shadow: 0 0 0 20px rgba(255, 0, 0, 0);
-    }
-
-    100% {
-        box-shadow: 0 0 0 0 rgba(255, 0, 0, 0);
-    }
-}
-
-.btn-test {
-    background: transparent;
-    color: #666;
-    border: 1px solid #333;
-    padding: 6px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.75rem;
-    font-weight: 500;
-    margin-left: 10px;
-    transition: all 0.2s ease;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.btn-test:hover {
-    border-color: var(--danger-color);
-    color: var(--danger-color);
-    background: rgba(255, 59, 48, 0.05);
-}
-
-/* Secondary Buttons */
-.sec-controls,
-.spacer {
-    flex: 1;
-    display: flex;
-    gap: 15px;
-    /* sec-controls match flex 1 with spacer to keep main button centered */
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger);
+  color: var(--bg-0);
 }
 
 .btn-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    border: 1px solid var(--border-color);
-    background: transparent;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  flex: 0 0 auto;
 }
 
-.btn-icon:not(:disabled):hover {
-    border-color: var(--text-primary);
-    color: var(--text-primary);
+.btn-icon.muted {
+  border-color: var(--danger-dim);
+  background: var(--danger-glow);
+  color: var(--danger);
 }
 
-.btn-icon.active {
-    background: var(--bg-color);
-    border-color: transparent;
-    color: var(--text-primary);
-    background: #252525;
+.btn svg {
+  width: 15px;
+  height: 15px;
 }
 
-.btn-icon.off {
-    color: var(--danger-color);
-    border-color: rgba(255, 59, 48, 0.3);
-    position: relative;
-    overflow: hidden;
+/* ==========================================================================
+   PANEL LATERAL
+   ========================================================================== */
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
 }
 
-.btn-icon.off::after {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 1px;
-    background: var(--danger-color);
-    transform: rotate(45deg);
+.panel {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
-/* Disabled State */
-button:disabled {
-    opacity: 0.3;
-    pointer-events: none;
+.panel-grow {
+  flex: 1 1 auto;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--bg-2);
+  flex: 0 0 auto;
+}
+
+.panel-head h3 {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.panel-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.dot-state {
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--idle);
+}
+
+.dot-state.ok {
+  background: var(--ok);
+}
+
+.dot-state.bad {
+  background: var(--danger);
+}
+
+.badge {
+  min-width: 19px;
+  height: 19px;
+  padding: 0 6px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--bg-0);
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.badge.hot {
+  background: var(--danger-glow);
+  border-color: var(--danger-dim);
+  color: var(--danger);
+}
+
+.btn-mini {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg-0);
+  color: var(--text-3);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.btn-mini:hover {
+  color: var(--ok);
+  border-color: var(--ok-dim);
+}
+
+.panel-body {
+  padding: 13px;
+}
+
+/* --- Presets de luces --- */
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+.preset {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg-0);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+
+.preset:hover:not(:disabled) {
+  background: var(--bg-3);
+  color: var(--text-0);
+}
+
+.preset:disabled {
+  opacity: .45;
+  cursor: wait;
+}
+
+.preset .swatch {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, .14);
+}
+
+.preset[data-kind="alarm"] {
+  border-color: var(--danger-dim);
+  color: var(--danger);
+}
+
+.preset[data-kind="off"] {
+  border-color: var(--line-strong);
+}
+
+.gpio-feedback {
+  margin-top: 10px;
+  min-height: 15px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--text-4);
+}
+
+.gpio-feedback.ok {
+  color: var(--ok);
+}
+
+.gpio-feedback.bad {
+  color: var(--danger);
+}
+
+/* --- Filtros --- */
+.filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  padding: 10px 13px;
+  border-bottom: 1px solid var(--line-soft);
+  flex: 0 0 auto;
+}
+
+.filters select {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-0);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.filters select:focus {
+  outline: none;
+  border-color: var(--accent-dim);
+}
+
+/* --- Timeline --- */
+.timeline {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 6px 0;
+}
+
+.empty {
+  padding: 32px 16px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--text-4);
+  text-transform: uppercase;
+}
+
+.evt {
+  display: grid;
+  grid-template-columns: 3px 1fr auto;
+  gap: 10px;
+  align-items: start;
+  padding: 9px 13px;
+  border-bottom: 1px solid var(--line-soft);
+  cursor: default;
+}
+
+.evt:hover {
+  background: var(--bg-2);
+}
+
+.evt-rail {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  background: var(--idle);
+}
+
+.evt.sev-alert .evt-rail {
+  background: var(--danger);
+}
+
+.evt.sev-test .evt-rail {
+  background: var(--warn);
+}
+
+.evt.sev-info .evt-rail {
+  background: var(--accent);
+}
+
+.evt.acked {
+  opacity: .48;
+}
+
+.evt-main {
+  min-width: 0;
+}
+
+.evt-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.evt-cam {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.evt-time {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.evt-detail {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.evt-ack {
+  align-self: center;
+  width: 21px;
+  height: 21px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-4);
+  font-size: 10px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.evt-ack:hover {
+  color: var(--ok);
+  border-color: var(--ok-dim);
+}
+
+.evt.acked .evt-ack {
+  visibility: hidden;
+}
+
+/* ==========================================================================
+   AUDIO GATE
+   ========================================================================== */
+
+.audio-gate {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: none;
+}
+
+.audio-gate.show {
+  display: block;
+}
+
+#audio-gate-btn {
+  padding: 9px 18px;
+  border: 1px solid var(--warn-dim);
+  border-radius: 20px;
+  background: var(--warn-glow);
+  color: var(--warn);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .11em;
+  cursor: pointer;
+  backdrop-filter: none;
+  box-shadow: var(--shadow-sm);
+}
+
+#audio-gate-btn:hover {
+  background: var(--warn);
+  color: var(--bg-0);
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+
+@media (max-width: 1200px) {
+  .layout {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .side {
+    max-height: none;
+  }
+
+  .timeline {
+    max-height: 320px;
+  }
+}
+
+@media (max-width: 900px) {
+  .telemetry {
+    display: none;
+  }
+
+  .cam-grid {
+    grid-template-columns: 1fr;
+  }
 }

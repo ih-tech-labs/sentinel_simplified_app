@@ -1,234 +1,400 @@
-body,
-html {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    font-family: 'Inter', sans-serif;
-    color: white;
+/* ==========================================================================
+   Sentinel Kiosk · v5
+   Pantalla vertical 1080x1920 sobre Raspberry Pi 5.
+
+   REGLA DE ORO DE ESTE ARCHIVO: nada de `backdrop-filter` ni `filter: blur()`
+   encima del video. En la v4 el panel del clima usaba backdrop-filter:blur(20px)
+   sobre un video 4K en reproducción, lo que obliga al compositor a leer de
+   vuelta el framebuffer en CADA cuadro. En una RPi 5 (sin decodificador H.264
+   por hardware) eso solo alcanzaba para unos pocos fps.
+   Acá se reemplaza por capas semitransparentes planas: se ve prácticamente
+   igual y cuesta cero.
+   ========================================================================== */
+
+:root {
+  --ink: #ffffff;
+  --ink-soft: rgba(255, 255, 255, .74);
+  --ink-faint: rgba(255, 255, 255, .5);
+  --panel: rgba(18, 22, 30, .58);
+  --panel-line: rgba(255, 255, 255, .13);
+  --ok: #34d399;
+  --bad: #f87171;
+  --font: "Inter", "Segoe UI", "Noto Sans", "DejaVu Sans", system-ui, sans-serif;
 }
 
-/* Background Video */
-.video-background {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-video#bgVideo {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: var(--ink);
+  font-family: var(--font);
+  /* Sin selección ni menú contextual: es una pantalla, no una PC */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: none;
 }
 
-.video-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.2);
-    /* Slight tint */
+/* ==========================================================================
+   FONDO
+   ========================================================================== */
+
+#bgVideo {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  /* Promueve el video a su propia capa de composición: evita repintados
+     del resto de la UI cada vez que llega un cuadro nuevo. */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
-/* UI Layer */
-.ui-layer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 40px;
-    box-sizing: border-box;
-    transition: filter 0.5s ease;
+/* Degradados planos en vez de blur: legibilidad sin costo de GPU */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, .55) 0%, rgba(0, 0, 0, .12) 26%, rgba(0, 0, 0, 0) 45%),
+    linear-gradient(to top, rgba(0, 0, 0, .68) 0%, rgba(0, 0, 0, .18) 24%, rgba(0, 0, 0, 0) 42%);
 }
 
-/* Blur effect when calling */
-.ui-layer.blurred {
-    filter: blur(20px);
+/* ==========================================================================
+   REPOSO
+   ========================================================================== */
+
+.idle {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 7vh 5vw;
+  transition: opacity .45s ease;
 }
 
-/* Clock & Date */
-.top-bar {
-    text-align: center;
-    margin-top: 100px;
+.idle.away {
+  opacity: 0;
+  pointer-events: none;
 }
 
-#date-display {
-    font-size: 1.5rem;
-    font-weight: 600;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+.stack-top {
+  text-align: center;
+  margin-top: 4vh;
 }
 
-#clock-display {
-    font-family: 'Outfit', sans-serif;
-    font-size: 12rem;
-    /* Massive iOS style */
-    line-height: 1;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.95);
-    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    /* Gradient text effect if desired, matching iOS screenshot orange? */
-    /* background: linear-gradient(to bottom, #ff5e3a, #ff2a68); */
-    /* -webkit-background-clip: text; */
-    /* -webkit-text-fill-color: transparent; */
-    /* Keeping it white based on user preference from history, or orange from image? 
-       User history says "Time color white". Image shows orange. 
-       I'll stick to white but maybe add an orange tint option later. For now white to match history. */
+.date {
+  font-size: clamp(18px, 2.4vw, 34px);
+  font-weight: 500;
+  letter-spacing: .02em;
+  color: var(--ink-soft);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, .5);
 }
 
-/* Weather Widget */
-.weather-widget {
-    margin-bottom: 50px;
-    display: flex;
-    justify-content: center;
+.clock {
+  font-size: clamp(90px, 16vw, 240px);
+  font-weight: 200;
+  line-height: .92;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 6px 28px rgba(0, 0, 0, .45);
+  margin-top: .06em;
 }
 
-.glass-panel {
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-radius: 30px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    padding: 20px 40px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    width: 60%;
-    max-width: 600px;
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+.stack-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3vh;
+  margin-bottom: 2vh;
 }
 
-.weather-icon {
-    font-size: 3rem;
+/* --- Panel: translúcido plano, sin backdrop-filter --- */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-radius: 26px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, .34);
 }
 
-.weather-info {
-    flex-grow: 1;
+.weather {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  align-items: center;
+  gap: 4%;
+  padding: clamp(18px, 2.6vh, 32px) clamp(22px, 3.4vw, 42px);
 }
 
-.temp {
-    font-size: 3rem;
-    font-weight: 600;
+.w-icon {
+  flex: 0 0 auto;
+  width: clamp(44px, 6vw, 76px);
+  height: clamp(44px, 6vw, 76px);
+  color: var(--ink);
+  opacity: .92;
 }
 
-.desc {
-    font-size: 1.2rem;
-    opacity: 0.9;
+.w-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
-.range {
-    font-size: 1rem;
-    opacity: 0.7;
+.w-main {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-.location {
-    font-size: 1.5rem;
-    font-weight: 600;
+.w-temp {
+  font-size: clamp(38px, 5.4vw, 68px);
+  font-weight: 300;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Call Layer */
-.call-layer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 3;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: rgba(0, 0, 0, 0.4);
+.w-desc {
+  margin-top: .3em;
+  font-size: clamp(13px, 1.6vw, 22px);
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.w-side {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.w-city {
+  font-size: clamp(15px, 1.8vw, 26px);
+  font-weight: 600;
+}
+
+.w-range {
+  margin-top: .35em;
+  font-size: clamp(12px, 1.4vw, 18px);
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Línea de estado --- */
+.statusline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(11px, 1.15vw, 15px);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.sdot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .35);
+  transition: background .3s;
+}
+
+.statusline.ok .sdot {
+  background: var(--ok);
+  box-shadow: 0 0 10px var(--ok);
+}
+
+.statusline.bad .sdot {
+  background: var(--bad);
+  box-shadow: 0 0 10px var(--bad);
+}
+
+/* ==========================================================================
+   LLAMADA
+   ========================================================================== */
+
+.call {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5vw;
+  background: rgba(0, 0, 0, .78);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .4s ease;
+}
+
+.call.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.call-card {
+  width: 100%;
+  max-width: 960px;
+  background: #0d1117;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 28px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, .6);
+}
+
+.call-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: clamp(14px, 2vh, 22px) clamp(18px, 2.4vw, 28px);
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+
+.live {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: clamp(10px, 1.05vw, 13px);
+  font-weight: 600;
+  letter-spacing: .16em;
+  color: var(--ok);
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  animation: livePulse 2s infinite;
+}
+
+@keyframes livePulse {
+
+  0%,
+  100% {
     opacity: 1;
-    transition: opacity 0.5s ease;
+  }
+
+  50% {
+    opacity: .3;
+  }
 }
 
-.call-layer.hidden {
-    opacity: 0;
-    pointer-events: none;
+.call-title {
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: clamp(14px, 1.7vw, 22px);
+  font-weight: 500;
+  color: var(--ink-soft);
 }
 
-.call-modal {
-    width: 90%;
-    height: 60%;
-    flex-direction: column;
-    justify-content: center;
-    background: rgba(20, 20, 20, 0.85);
-    /* Darker glass for call */
+.call-timer {
+  font-size: clamp(11px, 1.15vw, 15px);
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .06em;
 }
 
-.video-container {
-    width: 100%;
-    height: 80%;
-    background: black;
-    border-radius: 20px;
-    overflow: hidden;
-    margin: 20px 0;
+.call-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #05070a;
 }
 
 #remoteVideo {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity .3s;
 }
 
-/* Avatar Styling */
-.avatar-placeholder {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background: #111;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    pointer-events: none;
+.avatar {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: #05070a;
+  color: rgba(255, 255, 255, .26);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .3s;
 }
 
-.avatar-icon {
-    width: 120px;
-    height: 120px;
-    color: #444;
-    /* Dark minimalist gray */
+.avatar svg {
+  width: clamp(70px, 11vw, 130px);
+  height: clamp(70px, 11vw, 130px);
 }
 
-/* When in avatar mode (cam off) */
-.video-container {
-    position: relative;
-    /* Ensure relative for absolute child */
+.avatar span {
+  font-size: clamp(12px, 1.3vw, 17px);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .38);
 }
 
-.video-container.avatar-mode .avatar-placeholder {
-    opacity: 1;
+/* Cámara del operador apagada → mostramos avatar y ocultamos el último cuadro */
+.call-stage.avatar-on .avatar {
+  opacity: 1;
 }
 
-.video-container.avatar-mode #remoteVideo {
-    opacity: 0;
-    /* Hide video when avatar IS showing to prevent frozen frame */
+.call-stage.avatar-on #remoteVideo {
+  opacity: 0;
 }
 
-
-.status-indicator {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+.call-foot {
+  padding: clamp(14px, 2vh, 22px);
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, .07);
 }
 
-.dot {
-    width: 10px;
-    height: 10px;
-    background: #00ff00;
-    border-radius: 50%;
-    box-shadow: 0 0 10px #00ff00;
+.mic-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: clamp(12px, 1.35vw, 17px);
+  color: var(--ink-faint);
+}
+
+.mic-hint svg {
+  width: 1.15em;
+  height: 1.15em;
+}
+
+/* ==========================================================================
+   PANTALLAS APAISADAS (por si se prueba en un monitor horizontal)
+   ========================================================================== */
+
+@media (orientation: landscape) {
+  .clock {
+    font-size: clamp(70px, 11vw, 170px);
+  }
+
+  .idle {
+    padding: 5vh 6vw;
+  }
+
+  .stack-top {
+    margin-top: 1vh;
+  }
 }

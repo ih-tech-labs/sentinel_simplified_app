@@ -1,0 +1,35 @@
+{
+  "_leeme": [
+    "Copiá este archivo como config/cameras.json y editalo, o dejá que lo genere install.sh.",
+    "El archivo real NO va al repositorio: tiene usuario y clave de las cámaras.",
+    "",
+    "id           identificador corto. Va en la URL del kiosko: /kiosk/?id=principal",
+    "             Minúsculas, números, guiones. NO conviene cambiarlo después.",
+    "name         nombre visible en el backoffice. Este sí se puede cambiar cuando quieras.",
+    "shortName    etiqueta sobre el video, estilo CCTV. Máximo 12 caracteres.",
+    "zone         subtítulo de la tarjeta. Opcional.",
+    "rtspUrl      URL de la cámara. null = puesto sin video (sólo llamadas y alarmas).",
+    "deviceId     device_id de Verkada. null = esta cámara no recibe alarmas del webhook.",
+    "allowedEvents  tipos de evento que disparan alarma. null = todos.",
+    "",
+    "Usá el substream si la cámara lo tiene: consume una fracción del CPU.",
+    "  Hikvision  /Streaming/Channels/102   (en vez de /101)",
+    "  Dahua      subtype=1                 (en vez de subtype=0)"
+  ],
+
+  "site": "Nombre del sitio",
+
+  "cameras": [
+    {
+      "deviceId": null,
+      "id": "principal",
+      "name": "Cancha de Tenis",
+      "shortName": "TENIS",
+      "zone": "Sector Deportivo",
+      "rtspUrl": "rtsp://usuario:clave@192.168.1.50:554/Streaming/Channels/102",
+      "triggerVideo": true,
+      "sound": true,
+      "allowedEvents": ["alert_rule_line_crossing", "alert_rule_motion"]
+    }
+  ]
+}

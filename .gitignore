@@ -1,0 +1,46 @@
+# =============================================================================
+#  Sentinel v5 · qué NO va al repositorio
+# =============================================================================
+
+# --- Dependencias ---
+# Se reinstalan con `npm install`. Además contienen symlinks (node_modules/.bin/*)
+# que Git en Windows no puede indexar: ese es el error
+# "open(...): Invalid argument / unable to index file".
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# --- Secretos ---
+# .env tiene el hash de la contraseña, el secreto de sesión y el shared secret
+# de Verkada. cameras.json tiene usuario y clave de cada cámara RTSP.
+# Ambos se generan solos con install.sh; en el repo van las plantillas .example.
+.env
+.env.local
+.session_secret
+config/cameras.json
+
+# --- Datos en ejecución ---
+data/
+*.jsonl
+
+# --- Logs ---
+*.log
+sentinel*.log
+gpio.log
+
+# --- Estado temporal de los scripts ---
+.stage_state
+.screen_rotation
+.deploy_state
+*.bak
+*.bak-*
+*.tar.gz
+
+# --- Python ---
+__pycache__/
+*.pyc
+
+# --- Sistema operativo ---
+.DS_Store
+Thumbs.db
+desktop.ini

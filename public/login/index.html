@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Sentinel · Acceso</title>
+  <link rel="stylesheet" href="/ui/tokens.css">
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: var(--bg-0);
+      font-family: var(--font-sans);
+      color: var(--text-1);
+      overflow: hidden;
+    }
+
+    /* Grilla tenue de fondo: da sensacion de sala de control sin costar GPU */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 20%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 20%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .shell {
+      position: relative;
+      width: min(400px, calc(100vw - 40px));
+      z-index: 1;
+    }
+
+    .mark {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .mark .glyph {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 16px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--accent-dim);
+      border-radius: 12px;
+      background: var(--accent-glow);
+      color: var(--accent);
+    }
+
+    .mark h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: .34em;
+      text-indent: .34em;
+      color: var(--text-0);
+    }
+
+    .mark p {
+      margin: 8px 0 0;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: .22em;
+      color: var(--text-3);
+      text-transform: uppercase;
+    }
+
+    .card {
+      background: var(--bg-1);
+      border: 1px solid var(--line);
+      border-radius: var(--r-lg);
+      padding: 28px;
+      box-shadow: var(--shadow);
+    }
+
+    label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 7px;
+    }
+
+    .field {
+      margin-bottom: 18px;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      background: var(--bg-0);
+      border: 1px solid var(--line);
+      border-radius: var(--r-sm);
+      padding: 12px 14px;
+      color: var(--text-0);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      letter-spacing: .04em;
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    button {
+      width: 100%;
+      margin-top: 6px;
+      padding: 13px;
+      border: 1px solid var(--accent-dim);
+      border-radius: var(--r-sm);
+      background: var(--accent-glow);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--accent);
+      color: var(--bg-0);
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .msg {
+      margin-top: 16px;
+      padding: 11px 13px;
+      border-radius: var(--r-sm);
+      font-size: 12.5px;
+      line-height: 1.45;
+      display: none;
+      border: 1px solid var(--danger-dim);
+      background: var(--danger-glow);
+      color: var(--danger);
+    }
+
+    .msg.show {
+      display: block;
+    }
+
+    .foot {
+      margin-top: 22px;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: .14em;
+      color: var(--text-4);
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="shell">
+    <div class="mark">
+      <div class="glyph">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2 4 5.5v6c0 5 3.4 9.2 8 10.5 4.6-1.3 8-5.5 8-10.5v-6L12 2Z" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+      </div>
+      <h1>SENTINEL</h1>
+      <p>Centro de Monitoreo</p>
+    </div>
+
+    <form class="card" id="form" autocomplete="off">
+      <div class="field">
+        <label for="user">Operador</label>
+        <input id="user" name="user" type="text" autocomplete="username" autocapitalize="none" spellcheck="false"
+          required autofocus>
+      </div>
+      <div class="field">
+        <label for="password">Clave de acceso</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" id="submit">Autenticar</button>
+      <div class="msg" id="msg" role="alert"></div>
+    </form>
+
+    <div class="foot">Acceso restringido · v5.0</div>
+  </div>
+
+  <script>
+    const form = document.getElementById('form');
+    const msg = document.getElementById('msg');
+    const submit = document.getElementById('submit');
+
+    const nextUrl = () => {
+      const raw = new URLSearchParams(location.search).get('next');
+      // Solo aceptamos rutas internas: evita redirect abierto hacia otro dominio
+      if (raw && raw.startsWith('/') && !raw.startsWith('//')) return raw;
+      return '/backoffice/';
+    };
+
+    function showError(text) {
+      msg.textContent = text;
+      msg.classList.add('show');
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.classList.remove('show');
+      submit.disabled = true;
+      submit.textContent = 'Verificando...';
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user: document.getElementById('user').value,
+            password: document.getElementById('password').value
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok) {
+          location.replace(nextUrl());
+          return;
+        }
+        showError(data.message || 'No se pudo iniciar sesión.');
+        document.getElementById('password').value = '';
+        document.getElementById('password').focus();
+      } catch (err) {
+        showError('Sin conexión con el servidor.');
+      } finally {
+        submit.disabled = false;
+        submit.textContent = 'Autenticar';
+      }
+    });
+
+    // Si ya hay sesion valida, saltamos directo
+    fetch('/api/session').then(r => { if (r.ok) location.replace(nextUrl()); }).catch(() => { });
+  </script>
+</body>
+
+</html>

@@ -2,185 +2,140 @@
 <html lang="es">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sentinel Backoffice</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="https://jsmpeg.com/jsmpeg.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Sentinel · Centro de Monitoreo</title>
+  <link rel="stylesheet" href="/ui/tokens.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="/socket.io/socket.io.js" defer></script>
+  <script src="/vendor/jsmpeg.min.js" defer></script>
+  <script src="app.js" defer></script>
 </head>
 
 <body>
-    <div class="container">
-        <!-- Header -->
-        <header>
-            <div class="brand">SENTINEL</div>
-
-
-        </header>
-
-        <!-- Main Content -->
-        <main>
-            <div class="grid-container multi-kiosk">
-                <!-- CARD 1: ADMINISTRACIÓN -->
-                <div class="kiosk-card" id="card-admin">
-                    <div class="card-header">
-                        <span class="kiosk-name">ADMINISTRACIÓN</span>
-                        <div class="status-badge offline" id="status-admin">OFFLINE</div>
-                    </div>
-
-                    <!-- RTSP Player Container -->
-                    <div class="video-wrapper">
-                        <canvas id="canvas-admin" class="rtsp-canvas"></canvas>
-                        <div class="overlay-msg">Conectando...</div>
-                    </div>
-
-                    <!-- IN-CARD CALL INTERFACE (Hidden by default) -->
-                    <div class="call-interface hidden" id="call-ui-admin">
-                        <!-- Remote Video (The Kiosk's Camera) -->
-                        <video id="remoteVideo-admin" autoplay playsinline class="remote-video"></video>
-                        <audio id="remoteAudio-admin" autoplay></audio>
-
-                        <!-- Local Video PIP (My Webcam) -->
-                        <div class="local-pip">
-                            <video id="localVideo-admin" autoplay playsinline muted class="mirror"></video>
-                            <!-- Logo Overlay (For Camera Off) -->
-                            <div class="logo-overlay hidden" id="logo-admin">
-                                <svg viewBox="0 0 24 24" fill="currentColor" width="40" height="40">
-                                    <path
-                                        d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                                </svg>
-                            </div>
-                        </div>
-
-                        <!-- In-Call Controls -->
-                        <div class="card-call-controls">
-                            <!-- Mute/Cam Toggles -->
-                            <button id="btn-mute-admin" class="btn-ctrl-mini active" onclick="toggleMute()"
-                                title="Silenciar">
-                                <svg class="ctrl-icon-mini" viewBox="0 0 24 24" fill="currentColor">
-                                    <path
-                                        d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 2.34 9 5v6c0 1.66 1.34 3 3 3z" />
-                                    <path
-                                        d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-                                </svg>
-                            </button>
-                            <button id="btn-cam-admin" class="btn-ctrl-mini active" onclick="toggleCam()"
-                                title="Cámara">
-                                <svg class="ctrl-icon-mini" viewBox="0 0 24 24" fill="currentColor">
-                                    <path
-                                        d="M15 8v8H5V8h10m1-2H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4V7c0-.55-.45-1-1-1z" />
-                                </svg>
-                            </button>
-
-                            <button class="btn-hangup-mini" onclick="endCall()">
-                                <svg class="ctrl-icon-mini" viewBox="0 0 24 24" fill="currentColor">
-                                    <path
-                                        d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.36 7.46 6 12 6s8.66 2.36 11.71 5.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Idle Controls -->
-                    <div class="card-footer" id="footer-admin">
-                        <button class="btn-call idle" onclick="selectKiosk('admin')">
-                            <span class="icon">📞</span> LLAMAR
-                        </button>
-                        <button class="btn-test-mini" onclick="testAlarm('admin')">🔔 Test</button>
-                    </div>
-                </div>
-
-                <!-- CARD 2: HOUSE TENIS -->
-                <div class="kiosk-card" id="card-tenis">
-                    <div class="card-header">
-                        <span class="kiosk-name">HOUSE TENIS</span>
-                        <div class="status-badge offline" id="status-tenis">OFFLINE</div>
-                    </div>
-
-                    <!-- RTSP Player Container -->
-                    <div class="video-wrapper" id="wrapper-tenis">
-                        <canvas id="canvas-tenis" class="rtsp-canvas"></canvas>
-                        <div class="overlay-msg">Conectando...</div>
-                    </div>
-
-                    <!-- IN-CARD CALL INTERFACE -->
-                    <div class="call-interface hidden" id="call-ui-tenis">
-                        <video id="remoteVideo-tenis" autoplay playsinline class="remote-video"></video>
-                        <audio id="remoteAudio-tenis" autoplay></audio>
-
-                        <div class="local-pip">
-                            <video id="localVideo-tenis" autoplay playsinline muted class="mirror"></video>
-                            <div class="logo-overlay hidden" id="logo-tenis">
-                                <svg viewBox="0 0 24 24" fill="currentColor" width="40" height="40">
-                                    <path
-                                        d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                                </svg>
-                            </div>
-                        </div>
-
-                        <div class="card-call-controls">
-                            <button id="btn-mute-tenis" class="btn-ctrl-mini active" onclick="toggleMute()">
-                                <svg class="ctrl-icon-mini" viewBox="0 0 24 24" fill="currentColor">
-                                    <path
-                                        d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 2.34 9 5v6c0 1.66 1.34 3 3 3z" />
-                                    <path
-                                        d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-                                </svg>
-                            </button>
-                            <button id="btn-cam-tenis" class="btn-ctrl-mini active" onclick="toggleCam()">
-                                <svg class="ctrl-icon-mini" viewBox="0 0 24 24" fill="currentColor">
-                                    <path
-                                        d="M15 8v8H5V8h10m1-2H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4V7c0-.55-.45-1-1-1z" />
-                                </svg>
-                            </button>
-                            <button class="btn-hangup-mini" onclick="endCall()">
-                                <svg class="ctrl-icon-mini" viewBox="0 0 24 24" fill="currentColor">
-                                    <path
-                                        d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.36 7.46 6 12 6s8.66 2.36 11.71 5.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Idle Controls -->
-                    <div class="card-footer" id="footer-tenis">
-                        <button class="btn-call idle" onclick="selectKiosk('tenis')">
-                            <span class="icon">📞</span> LLAMAR
-                        </button>
-                        <button class="btn-test-mini" onclick="testAlarm('tenis')">🔔 Test</button>
-                    </div>
-                </div>
-                <!-- Global Media Controls (Moved from Header) -->
-                <div class="global-controls">
-                    <button id="btn-global-mute" class="btn-ctrl active" title="Silenciar">
-                        <!-- SVG Mic -->
-                        <svg class="ctrl-icon" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 2.34 9 5v6c0 1.66 1.34 3 3 3z" />
-                            <path
-                                d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-                        </svg>
-                    </button>
-                    <button id="btn-global-cam" class="btn-ctrl active" title="Cámara">
-                        <!-- SVG Cam -->
-                        <svg class="ctrl-icon" viewBox="0 0 24 24" fill="currentColor">
-                            <path
-                                d="M15 8v8H5V8h10m1-2H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4V7c0-.55-.45-1-1-1z" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-
-        </main>
-
-        <!-- Footer / Controls -->
-        <!-- Alarm Audio (Hidden) -->
-        <audio id="alarmAudio" src="/assets/alarm.mp3" preload="auto"></audio>
+  <!-- ================= TOP BAR ================= -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-glyph">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2 4 5.5v6c0 5 3.4 9.2 8 10.5 4.6-1.3 8-5.5 8-10.5v-6L12 2Z" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+      </span>
+      <span class="brand-name">SENTINEL</span>
+      <span class="brand-sub" id="site-name">C2</span>
     </div>
 
-    <script src="backoffice.js"></script>
+    <!-- Barra de telemetria -->
+    <div class="telemetry" id="telemetry">
+      <div class="tele" title="Uso de CPU">
+        <span class="tele-k">CPU</span><span class="tele-v" id="m-cpu">--</span>
+      </div>
+      <div class="tele" title="Temperatura del SoC">
+        <span class="tele-k">TEMP</span><span class="tele-v" id="m-temp">--</span>
+      </div>
+      <div class="tele" title="Memoria en uso">
+        <span class="tele-k">RAM</span><span class="tele-v" id="m-ram">--</span>
+      </div>
+      <div class="tele" title="Almacenamiento">
+        <span class="tele-k">DISCO</span><span class="tele-v" id="m-disk">--</span>
+      </div>
+      <div class="tele" title="Tiempo en línea del servicio">
+        <span class="tele-k">UPTIME</span><span class="tele-v" id="m-uptime">--</span>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <div class="link-state" id="link-state">
+        <span class="pulse"></span><span id="link-label">CONECTANDO</span>
+      </div>
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="user-chip">
+        <span id="user-name">--</span>
+        <button class="btn-logout" id="btn-logout" title="Cerrar sesión">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <path d="m16 17 5-5-5-5" />
+            <path d="M21 12H9" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Banda de alarma global -->
+  <div class="alert-bar" id="alert-bar">
+    <span class="alert-bar-dot"></span>
+    <span id="alert-bar-text">ALARMA ACTIVA</span>
+    <button id="alert-bar-ack">Reconocer todo</button>
+  </div>
+
+  <!-- ================= LAYOUT ================= -->
+  <main class="layout">
+
+    <!-- --------- Columna de cámaras --------- -->
+    <section class="cams" id="cams">
+      <div class="section-head">
+        <h2>Puestos de Monitoreo</h2>
+        <span class="count" id="cam-count">0 activos</span>
+      </div>
+      <div class="cam-grid" id="cam-grid">
+        <!-- Se generan desde app.js a partir de la config del servidor -->
+      </div>
+    </section>
+
+    <!-- --------- Panel lateral --------- -->
+    <aside class="side">
+
+      <!-- Control de dispositivos -->
+      <section class="panel">
+        <div class="panel-head">
+          <h3>Control de Dispositivos</h3>
+          <span class="dot-state" id="gpio-state" title="Estado del enlace con Arduino"></span>
+        </div>
+        <div class="panel-body">
+          <div class="preset-grid" id="preset-grid"></div>
+          <div class="gpio-feedback" id="gpio-feedback"></div>
+        </div>
+      </section>
+
+      <!-- Historial -->
+      <section class="panel panel-grow">
+        <div class="panel-head">
+          <h3>Registro de Eventos</h3>
+          <div class="panel-actions">
+            <span class="badge" id="evt-pending">0</span>
+            <button class="btn-mini" id="btn-ack-all" title="Reconocer todos">✓</button>
+          </div>
+        </div>
+        <div class="filters">
+          <select id="f-kiosk" aria-label="Filtrar por puesto">
+            <option value="all">Todos los puestos</option>
+          </select>
+          <select id="f-sev" aria-label="Filtrar por tipo">
+            <option value="all">Todo tipo</option>
+            <option value="alert">Alarmas</option>
+            <option value="test">Pruebas</option>
+            <option value="info">Sistema</option>
+          </select>
+        </div>
+        <div class="timeline" id="timeline">
+          <div class="empty">Sin eventos registrados</div>
+        </div>
+      </section>
+
+    </aside>
+  </main>
+
+  <audio id="alarmAudio" src="/assets/alarm.mp3" preload="auto"></audio>
+
+  <!-- Aviso: los navegadores bloquean audio hasta la primera interacción -->
+  <div class="audio-gate" id="audio-gate">
+    <button id="audio-gate-btn">Habilitar audio de alarmas</button>
+  </div>
 </body>
 
 </html>

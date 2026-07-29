@@ -1,0 +1,107 @@
+/* ==========================================================================
+   Sentinel · Design tokens
+   Estetica SOC / centro de comando.
+
+   Sin webfonts a proposito: en una RPi que puede quedarse sin internet, un
+   @import de Google Fonts bloquea el render. Los stacks de abajo se ven bien
+   en Raspberry Pi OS (DejaVu / Noto) y en cualquier desktop.
+   ========================================================================== */
+
+:root {
+  /* --- Superficies --- */
+  --bg-0: #060910;
+  /* fondo de pagina */
+  --bg-1: #0b111c;
+  /* paneles */
+  --bg-2: #101927;
+  /* elementos elevados */
+  --bg-3: #16212f;
+  /* hover */
+  --bg-video: #04070c;
+
+  --line: #1c2838;
+  --line-soft: #141d2a;
+  --line-strong: #2a3a4f;
+  --grid-line: rgba(34, 211, 238, .045);
+
+  /* --- Texto --- */
+  --text-0: #e8eef6;
+  --text-1: #b9c6d6;
+  --text-2: #8496ab;
+  --text-3: #5d6f85;
+  --text-4: #3f4e60;
+
+  /* --- Acento primario (cyan) --- */
+  --accent: #22d3ee;
+  --accent-soft: #67e8f9;
+  --accent-dim: rgba(34, 211, 238, .32);
+  --accent-glow: rgba(34, 211, 238, .10);
+
+  /* --- Semanticos --- */
+  --ok: #10b981;
+  --ok-dim: rgba(16, 185, 129, .32);
+  --ok-glow: rgba(16, 185, 129, .10);
+
+  --warn: #f59e0b;
+  --warn-dim: rgba(245, 158, 11, .32);
+  --warn-glow: rgba(245, 158, 11, .10);
+
+  --danger: #f43f5e;
+  --danger-dim: rgba(244, 63, 94, .35);
+  --danger-glow: rgba(244, 63, 94, .10);
+
+  --idle: #64748b;
+
+  /* --- Tipografia --- */
+  --font-sans: "Inter", "Segoe UI", "Noto Sans", "DejaVu Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Roboto Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+
+  /* --- Formas --- */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --shadow: 0 16px 44px rgba(0, 0, 0, .55);
+  --shadow-sm: 0 4px 14px rgba(0, 0, 0, .4);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Barras de scroll acordes al tema */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-4);
+}
+
+/* Respeta a quien pidio menos animacion (y ayuda en hardware lento) */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

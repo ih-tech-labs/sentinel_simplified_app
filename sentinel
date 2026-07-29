@@ -1,0 +1,397 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  sentinel · comando único de operación
+#
+#      sentinel status              estado general del sistema
+#      sentinel diagnose [qué]      diagnóstico (all | gpio | tunnel | video)
+#      sentinel tunnel <acción>     setup <dominio> | status | clean | delete <nombre> | list
+#      sentinel rotate [grados]     rotación de pantalla (0 | 90 | 180 | 270)
+#      sentinel kiosk [id]          abrir el kiosko en esta pantalla
+#      sentinel logs [qué]          logs (server | gpio | tunnel | all)
+#      sentinel restart [qué]       reiniciar (all | server | gpio | tunnel)
+#      sentinel video <archivo>     optimizar el video de fondo
+#      sentinel password [clave]    cambiar la contraseña del backoffice
+#      sentinel report [archivo]    generar reporte del equipo
+#      sentinel cameras             ver las cámaras configuradas
+#      sentinel version             versiones instaladas
+# =============================================================================
+set -uo pipefail
+
+SENTINEL_HOME="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+# shellcheck source=lib/common.sh
+. "$SENTINEL_HOME/lib/common.sh"
+
+# ---------------------------------------------------------------------------
+usage() {
+  echo -e "${B}${BOLD}"
+  echo "  sentinel · operación del sistema"
+  echo -e "${N}"
+  sed -n '/^#      sentinel status/,/^#      sentinel version/p' "$(readlink -f "${BASH_SOURCE[0]}")" \
+    | sed 's/^#  //'
+  echo ""
+  echo -e "  ${D}Instalación:  ./install.sh        (equipo nuevo)${N}"
+  echo -e "  ${D}Migración:    ./deploy.sh         (equipo con la versión anterior)${N}"
+  echo -e "  ${D}Desinstalar:  ./remove_all.sh${N}"
+  echo ""
+}
+
+# ---------------------------------------------------------------------------
+cmd_status() {
+  . "$SENTINEL_HOME/lib/checks.sh"
+  banner "ESTADO DEL SISTEMA"
+
+  local ip; ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  info "Equipo   : $(hostname) · $(pi_model)"
+  info "IP       : ${ip:-desconocida}"
+  info "Carpeta  : $APP_DIR"
+  info "Uptime   : $(human_time "$(cut -d. -f1 /proc/uptime 2>/dev/null || echo 0)")"
+
+  checks_reset
+  check_services
+  check_endpoints
+
+  step "Recursos"
+  local temp cpu mem
+  temp="$(awk '{printf "%.0f", $1/1000}' /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo '?')"
+  mem="$(free -m 2>/dev/null | awk '/^Mem:/{printf "%d%%", $3*100/$2}' || echo '?')"
+  cpu="$(awk '{print $1}' /proc/loadavg 2>/dev/null || echo '?')"
+  info "Temperatura: ${temp}°C · Memoria: ${mem} · Carga: ${cpu}"
+
+  if [ -f /etc/cloudflared/config.yml ]; then
+    step "Túnel"
+    local dom; dom="$(sudo grep -m1 'hostname:' /etc/cloudflared/config.yml 2>/dev/null | awk '{print $NF}')"
+    if systemctl is-active --quiet cloudflared 2>/dev/null; then
+      local code; code="$(http_code "https://$dom/healthz" 10)"
+      [ "$code" = "200" ] && ok "$dom responde desde internet" \
+                          || warn "$dom devolvió HTTP $code"
+    else
+      err "cloudflared no está corriendo"
+    fi
+  fi
+
+  checks_summary
+  local rc=$?
+  echo ""
+  echo -e "  Backoffice  ${B}http://${ip:-localhost}:$(app_port)/backoffice/${N}"
+  echo -e "  Kiosko      ${B}http://${ip:-localhost}:$(app_port)/kiosk/?id=$(first_kiosk)${N}"
+  echo ""
+  return $rc
+}
+
+# ---------------------------------------------------------------------------
+cmd_diagnose() {
+  case "${1:-all}" in
+    gpio|luces)    . "$SENTINEL_HOME/lib/gpio.sh";   gpio_diagnose "$([ "${2:-}" = "--fix" ] && echo 1 || echo 0)" ;;
+    tunnel|tunel)  . "$SENTINEL_HOME/lib/tunnel.sh"; tunnel_status ;;
+    video)
+      local bg="$APP_DIR/public/assets/background.mp4"
+      banner "VIDEO DE FONDO"
+      [ -f "$bg" ] || { err "No existe $bg"; return 1; }
+      info "Archivo: $bg ($(du -h "$bg" | cut -f1))"
+      ffprobe -v error -select_streams v:0 \
+        -show_entries stream=codec_name,width,height,bit_rate,avg_frame_rate \
+        -of default=noprint_wrappers=1 "$bg" 2>/dev/null | sed 's/^/    /'
+      local w; w="$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$bg" 2>/dev/null)"
+      echo ""
+      if [ "${w:-0}" -gt 1200 ] 2>/dev/null; then
+        warn "Resolución alta para una Raspberry Pi 5"
+        info "La Pi 5 no tiene decodificador H.264 por hardware: todo se decodifica"
+        info "por software. Optimizalo con: sentinel video <archivo-original>"
+      else
+        ok "Resolución adecuada"
+      fi
+      echo "" ;;
+    all|*)
+      . "$SENTINEL_HOME/lib/checks.sh"
+      banner "DIAGNÓSTICO COMPLETO"
+      checks_reset
+      check_dependencies; check_files; check_syntax; check_config
+      check_services; check_endpoints
+      checks_summary
+      local rc=$?
+      echo ""
+      info "Diagnósticos específicos:"
+      info "  sentinel diagnose gpio    · control de luces"
+      info "  sentinel diagnose tunnel  · acceso desde internet"
+      info "  sentinel diagnose video   · video de fondo del kiosko"
+      echo ""
+      return $rc ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+cmd_tunnel() {
+  . "$SENTINEL_HOME/lib/tunnel.sh"
+  local action="${1:-status}"; shift || true
+  case "$action" in
+    setup|crear)   tunnel_setup "$@" ;;
+    status|estado) tunnel_status ;;
+    clean|limpiar) tunnel_clean ;;
+    delete|borrar) tunnel_delete "${1:-}" ;;
+    list|listar)
+      banner "TÚNELES DE LA CUENTA"
+      local rows; rows="$(tunnel_rows)"
+      if [ -z "$rows" ]; then
+        info "No hay túneles"
+      else
+        printf "    %-38s %-38s %s\n" "NOMBRE" "UUID" "ESTADO"
+        echo "$rows" | awk '{printf "    %-38s %-38s %s\n", $2, $1, ($4 == "" ? "sin conexiones" : "conectado")}'
+      fi
+      echo "" ;;
+    *) err "Acción desconocida: $action"
+       info "setup <dominio> | status | clean | delete <nombre> | list"; return 1 ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+cmd_kiosk() {
+  . "$SENTINEL_HOME/lib/screen.sh"
+  local id="${1:-$(first_kiosk)}"
+  local port; port="$(app_port)"
+  local url="http://localhost:$port/kiosk/?id=$id"
+
+  echo -e "${B}▸ Sentinel Kiosk · $id${N}"
+
+  # Sin esto, en un arranque en frío Chromium abre antes de que Node escuche
+  # y se queda en "sitio no disponible" para siempre.
+  echo -n "  Esperando al servidor"
+  wait_for_http "http://localhost:$port/healthz" 45 && echo -e " ${G}listo${N}" || echo -e " ${Y}sin respuesta${N}"
+
+  # Luces blancas
+  local white="0,0,0,255,0,0,0,0"
+  if command -v nc >/dev/null 2>&1 && echo "$white" | timeout 3 nc -q1 127.0.0.1 "$(env_get GPIO_PORT 8765)" >/dev/null 2>&1; then
+    ok "Luces encendidas"
+  elif [ -f "$APP_DIR/scripts/GPIO_control.py" ]; then
+    python3 "$APP_DIR/scripts/GPIO_control.py" "$white" >/dev/null 2>&1 && ok "Luces encendidas (CLI)" || true
+  fi
+
+  screen_reapply
+
+  # Impedir que la pantalla se apague (X11; en Wayland lo maneja el compositor
+  # y Chromium reproduciendo video ya inhibe el idle)
+  xset s noblank 2>/dev/null || true
+  xset s off     2>/dev/null || true
+  xset -dpms     2>/dev/null || true
+  command -v unclutter >/dev/null 2>&1 && (unclutter -idle 0.1 -root >/dev/null 2>&1 &) || true
+
+  # Evita el globo de "restaurar pestañas" tras un corte de luz
+  local profile
+  for profile in "$HOME/.config/chromium/Default/Preferences" "$HOME/snap/chromium/common/chromium/Default/Preferences"; do
+    [ -f "$profile" ] && sed -i 's/"exited_cleanly":false/"exited_cleanly":true/g; s/"exit_type":"Crashed"/"exit_type":"Normal"/g' "$profile" 2>/dev/null || true
+  done
+
+  local chrome=""
+  local cand
+  for cand in chromium-browser chromium google-chrome-stable; do
+    command -v "$cand" >/dev/null 2>&1 && { chrome="$cand"; break; }
+  done
+  [ -z "$chrome" ] && die "No se encontró Chromium"
+  ok "Navegador: $chrome"
+
+  local cache="/tmp/sentinel-chromium-cache"
+  mkdir -p "$cache"
+
+  # Flags afinados para RPi 5. Los cambios respecto de la v4 y por qué:
+  #   quitado --disk-cache-dir=/dev/null : desactivaba el caché, así que
+  #     Chromium volvía a leer y parsear el video de fondo en cada arranque
+  #   agregado --autoplay-policy         : sin esto Chromium puede bloquear el
+  #     arranque del video y la pantalla queda negra hasta que alguien la toca
+  #   agregado --ignore-gpu-blocklist    : fuerza el uso de la GPU VideoCore
+  echo -e "${G}▸ Iniciando kiosko...${N}"
+  exec "$chrome" \
+    --kiosk --start-fullscreen \
+    --noerrdialogs --disable-infobars --disable-session-crashed-bubble \
+    --disable-translate --no-first-run --no-default-browser-check \
+    --check-for-update-interval=31536000 \
+    --autoplay-policy=no-user-gesture-required \
+    --disk-cache-dir="$cache" --disk-cache-size=104857600 \
+    --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy \
+    --disable-background-timer-throttling \
+    --disable-backgrounding-occluded-windows \
+    --disable-renderer-backgrounding \
+    --disable-features=TranslateUI,Translate,CalculateNativeWinOcclusion \
+    --disable-pinch --overscroll-history-navigation=0 --hide-scrollbars \
+    --use-fake-ui-for-media-stream \
+    "$url"
+}
+
+# ---------------------------------------------------------------------------
+cmd_logs() {
+  case "${1:-server}" in
+    server|servidor) pm2 logs sentinel --lines "${2:-40}" ;;
+    gpio|luces)      pm2 logs sentinel-gpio --lines "${2:-40}" ;;
+    tunnel|tunel)    sudo journalctl -u cloudflared -n "${2:-40}" --no-pager ;;
+    all|todo)        pm2 logs --lines "${2:-20}" ;;
+    *) err "Uso: sentinel logs [server|gpio|tunnel|all] [líneas]"; return 1 ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+cmd_restart() {
+  case "${1:-all}" in
+    server|servidor) pm2 restart sentinel && ok "Servidor reiniciado" ;;
+    gpio|luces)      pm2 restart sentinel-gpio && ok "Daemon de luces reiniciado" ;;
+    tunnel|tunel)    sudo systemctl restart cloudflared && ok "Túnel reiniciado" ;;
+    all|todo)
+      pm2 restart sentinel >/dev/null 2>&1 && ok "Servidor reiniciado" || warn "No se pudo reiniciar el servidor"
+      pm2_exists sentinel-gpio && { pm2 restart sentinel-gpio >/dev/null 2>&1 && ok "Daemon de luces reiniciado"; }
+      systemctl is-enabled --quiet cloudflared 2>/dev/null && {
+        sudo systemctl restart cloudflared && ok "Túnel reiniciado"; }
+      echo ""
+      wait_for_http "$(app_url)/healthz" 20 && ok "El servidor responde" || err "El servidor no respondió" ;;
+    *) err "Uso: sentinel restart [all|server|gpio|tunnel]"; return 1 ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+cmd_video() {
+  local src="${1:-}" height="${2:-1080}" crf="${3:-23}"
+  local out="$APP_DIR/public/assets/background.mp4"
+
+  [ -z "$src" ] && { err "Falta el archivo. Uso: sentinel video <archivo.mp4> [1080|720]"; return 1; }
+  [ -f "$src" ] || { err "No existe: $src"; return 1; }
+  command -v ffmpeg >/dev/null 2>&1 || { err "Falta ffmpeg"; return 1; }
+
+  local w h maxrate profile level
+  case "$height" in
+    1080) w=1080; h=1920; maxrate=5M;    profile=high; level=4.1 ;;
+    720)  w=720;  h=1280; maxrate=2500k; profile=main; level=4.0 ;;
+    *) err "Resolución no soportada: $height (usá 1080 o 720)"; return 1 ;;
+  esac
+
+  banner "OPTIMIZAR VIDEO DE FONDO"
+  info "Origen  : $src ($(du -h "$src" | cut -f1))"
+  ffprobe -v error -show_entries stream=width,height,bit_rate -of csv=p=0:s=x "$src" 2>/dev/null | head -1 | sed 's/^/  Actual  : /'
+  info "Destino : ${w}x${h} · CRF $crf"
+  echo ""
+  info "La Raspberry Pi 5 no tiene decodificador H.264 por hardware. Un archivo"
+  info "en 4K se decodifica entero por software y se ve trabado: por eso esto."
+  echo ""
+
+  [ -f "$out" ] && { cp "$out" "$out.bak-$(date +%Y%m%d-%H%M%S)"; warn "Copia del anterior guardada"; }
+
+  local tmp; tmp="$(mktemp -u /tmp/sentinel-bg-XXXX).mp4"
+  echo -e "${B}▸ Convirtiendo (unos minutos en la Pi)...${N}"
+  if ffmpeg -y -hide_banner -loglevel warning -stats \
+      -i "$src" -vf "scale=${w}:${h}:flags=bicubic,format=yuv420p" \
+      -c:v libx264 -profile:v "$profile" -level "$level" -preset veryfast \
+      -crf "$crf" -maxrate "$maxrate" -bufsize "$maxrate" \
+      -g 60 -keyint_min 60 -sc_threshold 0 -an -movflags +faststart "$tmp"; then
+    mv "$tmp" "$out"
+    echo ""
+    ok "Listo: $out ($(du -h "$out" | cut -f1))"
+    info "Reiniciá el kiosko para verlo (o esperá la recarga de las 04:30)."
+  else
+    rm -f "$tmp"; err "Falló la conversión"; return 1
+  fi
+  echo ""
+}
+
+# ---------------------------------------------------------------------------
+cmd_password() {
+  local pass="${1:-}"
+  banner "CAMBIAR CONTRASEÑA"
+  [ -f "$ENV_FILE" ] || { err "No encuentro .env"; return 1; }
+  [ -z "$pass" ] && ask_secret pass "Nueva contraseña"
+  [ "${#pass}" -lt 8 ] && { err "Mínimo 8 caracteres."; return 1; }
+
+  local hash
+  hash="$(node -e '
+    const { hashPassword } = require(process.argv[1]);
+    process.stdout.write(hashPassword(process.argv[2]));
+  ' "$APP_DIR/src/auth.js" "$pass")" || { err "No se pudo generar el hash"; return 1; }
+  [ -z "$hash" ] && { err "El hash salió vacío"; return 1; }
+
+  cp "$ENV_FILE" "$ENV_FILE.bak-$(date +%Y%m%d-%H%M%S)"
+  if grep -q '^AUTH_HASH=' "$ENV_FILE"; then
+    sed -i "s|^AUTH_HASH=.*|AUTH_HASH=$hash|" "$ENV_FILE"
+  else
+    echo "AUTH_HASH=$hash" >> "$ENV_FILE"
+  fi
+  ok "Contraseña actualizada (guardada como hash scrypt)"
+
+  if pm2_exists sentinel; then
+    pm2 restart sentinel >/dev/null 2>&1 && ok "Servidor reiniciado"
+    sleep 2
+    . "$SENTINEL_HOME/lib/checks.sh"
+    checks_reset
+    check_login "$(env_get AUTH_USER Bunker)" "$pass"
+  fi
+  echo ""
+}
+
+# ---------------------------------------------------------------------------
+cmd_cameras() {
+  banner "CÁMARAS CONFIGURADAS"
+  if [ -f "$CAMERAS_JSON" ]; then
+    node -e '
+      const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+      console.log("  Sitio: " + (c.site || "-") + "\n");
+      (c.cameras || []).forEach((cam) => {
+        console.log("  " + cam.id + "  ·  " + cam.name + (cam.zone ? "  (" + cam.zone + ")" : ""));
+        console.log("    RTSP     : " + String(cam.rtspUrl || "-").replace(/(rtsps?:\/\/)[^@/]*@/, "$1***:***@"));
+        console.log("    deviceId : " + (cam.deviceId || "SIN CARGAR — no recibe alarmas"));
+        console.log("    kiosko   : /kiosk/?id=" + cam.id);
+        console.log("");
+      });
+    ' "$CAMERAS_JSON" 2>/dev/null || err "cameras.json inválido"
+    info "Archivo: $CAMERAS_JSON"
+    info "Tras editarlo: sentinel restart server"
+  else
+    warn "No hay config/cameras.json — se usan los valores por defecto"
+  fi
+  echo ""
+}
+
+# ---------------------------------------------------------------------------
+cmd_report() {
+  . "$SENTINEL_HOME/lib/checks.sh"
+  local out="${1:-$HOME/sentinel-reporte-$(hostname)-$(date +%Y%m%d-%H%M%S).txt}"
+  banner "REPORTE DEL EQUIPO"
+  checks_reset
+  check_dependencies; check_files; check_config; check_services; check_endpoints
+  checks_summary || true
+  write_report "$out" "Reporte de estado"
+  echo ""
+  ok "Reporte guardado en:"
+  echo -e "    ${B}$out${N}"
+  echo ""
+  info "Para traerlo a tu máquina:"
+  info "  scp $(whoami)@$(hostname -I 2>/dev/null | awk '{print $1}'):$out ."
+  echo ""
+}
+
+# ---------------------------------------------------------------------------
+cmd_version() {
+  banner "VERSIONES"
+  printf "  %-14s %s\n" "Sentinel"    "$(node -e 'process.stdout.write(require("'"$APP_DIR"'/package.json").version)' 2>/dev/null || echo '-')"
+  printf "  %-14s %s\n" "Node.js"     "$(node -v 2>/dev/null || echo '-')"
+  printf "  %-14s %s\n" "npm"         "$(npm -v 2>/dev/null || echo '-')"
+  printf "  %-14s %s\n" "pm2"         "$(pm2 -v 2>/dev/null || echo '-')"
+  printf "  %-14s %s\n" "ffmpeg"      "$(ffmpeg -version 2>/dev/null | head -1 | awk '{print $3}' || echo '-')"
+  printf "  %-14s %s\n" "Python"      "$(python3 -V 2>/dev/null | awk '{print $2}' || echo '-')"
+  printf "  %-14s %s\n" "cloudflared" "$(cloudflared --version 2>/dev/null | awk '{print $3}' || echo 'no instalado')"
+  printf "  %-14s %s\n" "Chromium"    "$( (chromium-browser --version || chromium --version) 2>/dev/null | awk '{print $2}' || echo '-')"
+  printf "  %-14s %s\n" "Hardware"    "$(pi_model)"
+  echo ""
+}
+
+# ---------------------------------------------------------------------------
+require_app_dir
+CMD="${1:-}"; shift || true
+case "$CMD" in
+  status|estado)       cmd_status "$@" ;;
+  diagnose|diag)       cmd_diagnose "$@" ;;
+  tunnel|tunel)        cmd_tunnel "$@" ;;
+  rotate|rotar)        . "$SENTINEL_HOME/lib/screen.sh"; screen_rotate "${1:-}" ;;
+  kiosk|kiosko)        cmd_kiosk "$@" ;;
+  logs|log)            cmd_logs "$@" ;;
+  restart|reiniciar)   cmd_restart "$@" ;;
+  video)               cmd_video "$@" ;;
+  password|clave)      cmd_password "$@" ;;
+  cameras|camaras)     cmd_cameras "$@" ;;
+  report|reporte)      cmd_report "$@" ;;
+  version|--version)   cmd_version ;;
+  ""|help|--help|-h)   usage ;;
+  *) err "Comando desconocido: $CMD"; echo ""; usage; exit 1 ;;
+esac

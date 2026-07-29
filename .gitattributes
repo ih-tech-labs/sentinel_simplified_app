@@ -1,0 +1,46 @@
+# =============================================================================
+#  Finales de línea
+#
+#  CRÍTICO: este proyecto se edita en Windows y se ejecuta en Linux (Raspberry).
+#  Si Git convierte los scripts a CRLF, en la Pi fallan con:
+#
+#      bash: ./install.sh: /usr/bin/env: bad interpreter: No such file or directory
+#      $'\r': command not found
+#
+#  Todo lo que sea texto se guarda y se checkoutea con LF, siempre, en los dos
+#  sistemas operativos.
+# =============================================================================
+
+* text=auto eol=lf
+
+# --- Ejecutables: LF obligatorio, sin excepción ---
+*.sh    text eol=lf
+*.py    text eol=lf
+*.bash  text eol=lf
+
+# --- Código y configuración ---
+*.js    text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.txt   text eol=lf
+.env*   text eol=lf
+
+# --- Binarios: que Git no los toque ---
+*.mp4   binary
+*.webm  binary
+*.mp3   binary
+*.wav   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.pdf   binary
+*.tar.gz binary
