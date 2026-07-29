@@ -14,6 +14,7 @@
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 const { Server } = require('socket.io');
 
@@ -359,8 +360,28 @@ server.listen(config.PORT, config.HOST, () => {
   console.log(`   Cámaras     : ${cameras.CAMERA_LIST.map((c) => c.id).join(', ')}`);
   console.log(`   Streams     : ${config.STREAM_ON_DEMAND ? 'on-demand' : 'always-on'} @ ${config.STREAM_WIDTH}x${config.STREAM_HEIGHT} ${config.STREAM_FPS}fps`);
   console.log(`   Webhook     : ${config.VERKADA_SHARED_SECRET ? 'configurado' : '⚠️  SIN SECRET'}`);
-  console.log(`   Auth        : ${config.AUTH_HASH ? 'hash scrypt' : '⚠️  texto plano'}`);
+  console.log(`   Auth        : ${config.AUTH_HASH ? 'hash scrypt' : config.AUTH_PLAIN ? '⚠️  texto plano' : '❌ SIN CONFIGURAR'}`);
   console.log('');
+
+  // Sin AUTH_HASH el login rechaza todo, pero el servidor arranca igual y el
+  // único síntoma es un "usuario o contraseña incorrectos" que no dice nada.
+  // Avisamos fuerte acá, al arrancar, en vez de esperar a que alguien falle
+  // el login y después vaya a buscar el motivo en los logs.
+  if (!config.AUTH_HASH && !config.AUTH_PLAIN) {
+    const envExists = fs.existsSync(path.join(config.ROOT, '.env'));
+    console.error('  ╔══════════════════════════════════════════════════════════╗');
+    console.error('  ║  ⚠️   NADIE VA A PODER ENTRAR AL TABLERO                  ║');
+    console.error('  ╚══════════════════════════════════════════════════════════╝');
+    console.error('');
+    console.error(envExists
+      ? '   El archivo .env existe pero AUTH_HASH está vacío.'
+      : '   NO existe el archivo .env: la instalación quedó incompleta.');
+    console.error('');
+    console.error('   Solución:');
+    console.error(`     cd ${config.ROOT}`);
+    console.error(envExists ? '     ./sentinel password' : '     ./install.sh');
+    console.error('');
+  }
 });
 
 // Nunca dejar morir el proceso por una excepcion suelta: en un equipo

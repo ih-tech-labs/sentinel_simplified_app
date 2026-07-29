@@ -611,12 +611,19 @@ body.mono-cam .layout {
 }
 
 /* --- Capa de llamada, encima del stream --- */
+/* La capa de llamada NO tapa el stream RTSP.
+   El kiosko sólo manda audio (no tiene cámara), así que un fondo opaco dejaba
+   al operador mirando un rectángulo negro justo durante la llamada, que es
+   cuando más necesita ver quién está del otro lado. Se superponen únicamente
+   el cronómetro y su propia miniatura.
+   Si algún día el kiosko manda video, la clase has-remote-video lo muestra. */
 .call-layer {
   position: absolute;
   inset: 0;
   z-index: 5;
-  background: var(--bg-video);
+  background: transparent;
   display: none;
+  pointer-events: none;
 }
 
 .call-layer.active {
@@ -627,6 +634,30 @@ body.mono-cam .layout {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: none;
+}
+
+.call-layer.has-remote-video {
+  background: var(--bg-video);
+}
+
+.call-layer.has-remote-video .remote-video {
+  display: block;
+}
+
+/* Marco sutil para que se note que hay una llamada en curso sobre el RTSP */
+.call-layer.active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--ok-dim);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.call-layer .call-timer,
+.call-layer .call-pip {
+  pointer-events: auto;
 }
 
 .call-pip {
@@ -758,9 +789,16 @@ body.mono-cam .layout {
   color: var(--danger);
 }
 
+/* flex-shrink: 0 es imprescindible.
+   El SVG es un hijo flexible del botón; sin esto puede encogerse hasta
+   desaparecer, que es lo que pasaba en los botones cuadrados (.btn-icon):
+   quedaban vacíos mientras los botones con texto sí mostraban su icono. */
 .btn svg {
-  width: 15px;
-  height: 15px;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  display: block;
+  stroke: currentColor;
 }
 
 /* ==========================================================================
