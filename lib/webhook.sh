@@ -57,12 +57,37 @@ webhook_diagnose() {
   # -------------------------------------------------------------------------
   local first_device=""
   if [ -f "$CAMERAS_JSON" ]; then
+    # Validamos el FORMATO, no sólo la presencia. Un UUID recortado al copiar
+    # y pegar es indetectable a simple vista y hace que las alarmas reales se
+    # descarten para siempre mientras las pruebas locales pasan, porque usan
+    # el mismo valor equivocado contra sí mismo.
     node -e '
       const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+      const RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      let bad = 0;
       (c.cameras || []).forEach((cam) => {
-        console.log("    " + cam.id.padEnd(16) + (cam.deviceId || "SIN device_id — no va a recibir alarmas"));
+        const d = cam.deviceId;
+        if (!d) {
+          console.log("    " + cam.id.padEnd(16) + "SIN device_id — no va a recibir alarmas");
+        } else if (!RE.test(d)) {
+          bad++;
+          console.log("    " + cam.id.padEnd(16) + d);
+          console.log("    " + " ".repeat(16) + "^^ FORMATO INVÁLIDO: " + d.length +
+                      " caracteres, un UUID tiene 36");
+        } else {
+          console.log("    " + cam.id.padEnd(16) + d + "  (ok)");
+        }
       });
+      process.exit(bad ? 3 : 0);
     ' "$CAMERAS_JSON" 2>/dev/null
+    [ $? -eq 3 ] && {
+      echo ""
+      err "Hay device_id con formato inválido"
+      info "Un UUID son 36 caracteres: 8-4-4-4-12 en hexadecimal."
+      info "Si te falta un carácter, las alarmas reales se descartan aunque"
+      info "el diagnóstico local pase: acá se compara el valor contra sí mismo."
+      problems=$((problems + 1))
+    }
     first_device="$(node -e '
       const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
       const cam = (c.cameras || []).find((x) => x.deviceId);
@@ -195,6 +220,39 @@ webhook_diagnose() {
     ok "$lines evento(s) de webhook en el log reciente"
     pm2 logs sentinel --lines 400 --nostream 2>/dev/null \
       | grep -E "WEBHOOK|device_id :" | tail -6 | sed 's/^/      /'
+
+    # El chequeo que de verdad importa: ¿los device_id que MANDA Verkada
+    # coinciden con los que tenemos configurados?
+    local seen configured
+    seen="$(pm2 logs sentinel --lines 400 --nostream 2>/dev/null \
+            | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
+            | sort -u || true)"
+    if [ -n "$seen" ] && [ -f "$CAMERAS_JSON" ]; then
+      configured="$(node -e '
+        const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+        (c.cameras || []).forEach((x) => { if (x.deviceId) console.log(x.deviceId); });
+      ' "$CAMERAS_JSON" 2>/dev/null)"
+      local d missing=""
+      while IFS= read -r d; do
+        [ -z "$d" ] && continue
+        echo "$configured" | grep -qx "$d" || missing="${missing}${d}"$'\n'
+      done <<< "$seen"
+
+      if [ -n "$missing" ]; then
+        echo ""
+        err "Verkada está mandando device_id que NO tenés configurados:"
+        echo "$missing" | grep -v '^$' | sed 's/^/      /'
+        echo ""
+        info "Copiá el que corresponda a tu cámara en config/cameras.json"
+        info "y después: ./sentinel restart server"
+        echo ""
+        info "Compará con lo que tenés cargado:"
+        echo "$configured" | sed 's/^/      /'
+        problems=$((problems + 1))
+      else
+        ok "Los device_id recibidos coinciden con los configurados"
+      fi
+    fi
   else
     warn "Ningún webhook en el log reciente"
     info "Si Verkada dice que los está mandando, la URL de allá está mal."

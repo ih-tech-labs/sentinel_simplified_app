@@ -315,7 +315,10 @@ const staticOpts = {
     // Sin esto Chromium lo vuelve a leer del disco en cada reinicio del kiosko.
     if (/\.(mp4|webm|mp3|woff2?)$/i.test(filePath)) {
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    } else if (/\.(html)$/i.test(filePath)) {
+    } else if (/\.(html|css|js)$/i.test(filePath)) {
+      // Revalidar siempre. Son archivos chicos servidos por LAN o por el túnel,
+      // y el costo de un 304 es despreciable frente a depurar por qué un fix
+      // "no tomó" en un equipo remoto al que no se puede ir a apretar F5.
       res.setHeader('Cache-Control', 'no-cache');
     }
   },

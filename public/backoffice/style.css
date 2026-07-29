@@ -305,6 +305,8 @@ button {
   flex-direction: column;
   min-height: 0;
   min-width: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .section-head {
@@ -805,11 +807,17 @@ body.mono-cam .layout {
    PANEL LATERAL
    ========================================================================== */
 
+/* height: 0 + flex-grow es la forma robusta de decir "ocupá exactamente la
+   altura de la grilla, ni un píxel más". Con `min-height: 0` solo, el
+   contenido de los paneles todavía podía inflar la columna y empujar al
+   panel de dispositivos fuera de la vista. */
 .side {
   display: flex;
   flex-direction: column;
   gap: 14px;
   min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .panel {
@@ -918,6 +926,7 @@ body.mono-cam .layout {
 
 .panel-body {
   padding: 13px;
+  flex: 0 0 auto;
 }
 
 /* --- Presets de luces --- */
