@@ -117,7 +117,10 @@ function load() {
     seen.add(c.id);
   }
 
-  console.log(`[CAMERAS] ${cameras.length} puesto(s) desde ${source}: ${cameras.map((c) => c.id).join(', ')}`);
+  // A stderr, no a stdout: este módulo lo requieren scripts que capturan su
+  // salida (`node -e '...cameras...'`), y una línea de log en el medio les
+  // rompe el valor que están leyendo.
+  console.error(`[CAMERAS] ${cameras.length} puesto(s) desde ${source}: ${cameras.map((c) => c.id).join(', ')}`);
 
   return { site: String(raw.site || 'Sentinel'), cameras };
 }

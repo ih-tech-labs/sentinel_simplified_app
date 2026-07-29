@@ -18,6 +18,11 @@
     alarming: new Set(),    // kioskIds con alarma sin reconocer
   };
 
+  // Tope de eventos que el navegador guarda y dibuja. El historial completo
+  // vive en el servidor (data/events.jsonl); acá sólo interesa lo reciente,
+  // y cada evento de más es un nodo del DOM que hay que repintar.
+  const MAX_EVENTS = 200;
+
   const $ = (id) => document.getElementById(id);
   const socket = io({ transports: ['websocket', 'polling'], reconnectionDelayMax: 8000 });
 
@@ -338,7 +343,7 @@
     const list = state.events.filter((e) =>
       (kiosk === 'all' || e.kioskId === kiosk) &&
       (severity === 'all' || e.severity === severity)
-    ).slice(0, 150);
+    ).slice(0, MAX_EVENTS);
 
     if (!list.length) {
       box.innerHTML = '<div class="empty">Sin eventos</div>';
@@ -718,7 +723,7 @@
     state.user = data.user;
     state.cameras = data.cameras || [];
     state.presence = data.presence || {};
-    state.events = data.events || [];
+    state.events = (data.events || []).slice(0, MAX_EVENTS);
 
     $('user-name').textContent = data.user;
 
@@ -749,7 +754,7 @@
 
   socket.on('alarm', (evt) => {
     state.events.unshift(evt);
-    if (state.events.length > 300) state.events.length = 300;
+    if (state.events.length > MAX_EVENTS) state.events.length = MAX_EVENTS;
     renderTimeline();
     triggerAlarm(evt);
   });

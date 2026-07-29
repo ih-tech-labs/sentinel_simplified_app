@@ -533,8 +533,8 @@ STREAM_FPS=12
 STREAM_BITRATE=450k
 
 # --- Historial de eventos --------------------------------------------------
-EVENTS_MEMORY_LIMIT=500
-EVENTS_FILE_MAX_MB=10
+EVENTS_MEMORY_LIMIT=200
+EVENTS_FILE_MAX_MB=5
 
 # --- Control de luces ------------------------------------------------------
 GPIO_ENABLED=$GPIO_ENABLED

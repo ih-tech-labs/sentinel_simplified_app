@@ -807,17 +807,21 @@ body.mono-cam .layout {
    PANEL LATERAL
    ========================================================================== */
 
-/* height: 0 + flex-grow es la forma robusta de decir "ocupá exactamente la
-   altura de la grilla, ni un píxel más". Con `min-height: 0` solo, el
-   contenido de los paneles todavía podía inflar la columna y empujar al
-   panel de dispositivos fuera de la vista. */
+/* La barra lateral scrollea ENTERA.
+   Antes se repartía la altura entre los paneles con flexbox: el registro de
+   eventos crecía con el contenido y el navegador le sacaba el espacio al
+   panel de dispositivos, que quedaba recortado. Distintas combinaciones de
+   flex-basis y min-height sólo movían el problema de lugar.
+   Así no hay nada que repartir: cada panel ocupa lo que necesita y si no
+   entra todo, se scrollea la columna. Aburrido y no se puede romper. */
 .side {
   display: flex;
   flex-direction: column;
   gap: 14px;
   min-height: 0;
-  height: 100%;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 3px;
 }
 
 .panel {
@@ -830,18 +834,8 @@ body.mono-cam .layout {
   overflow: hidden;
 }
 
-/* flex-basis: 0, no auto.
-   Con `auto` la base del panel es la altura de su contenido: con 30 eventos
-   el registro pedía cientos de píxeles y el navegador se los sacaba al panel
-   de dispositivos, que quedaba recortado. Con base 0 el panel toma sólo el
-   espacio sobrante y la lista scrollea adentro. */
-.panel-grow {
-  flex: 1 1 0;
-  min-height: 120px;
-}
-
-/* Los paneles fijos no se encogen nunca */
-.side>.panel:not(.panel-grow) {
+/* Ningún panel se encoge: cada uno ocupa su altura natural */
+.side>.panel {
   flex: 0 0 auto;
 }
 
@@ -1025,9 +1019,9 @@ body.mono-cam .layout {
 
 /* --- Timeline --- */
 .timeline {
-  flex: 1 1 auto;
   overflow-y: auto;
-  min-height: 0;
+  max-height: 46vh;
+  min-height: 140px;
   padding: 6px 0;
 }
 
@@ -1185,7 +1179,7 @@ body.mono-cam .layout {
   }
 
   .side {
-    max-height: none;
+    overflow: visible;
   }
 
   .timeline {

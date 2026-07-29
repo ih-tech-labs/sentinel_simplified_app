@@ -98,7 +98,7 @@ function register(io, ctx) {
           site: cameras.SITE,
           cameras: cameras.publicList(),
           presence: onlineKiosks(),
-          events: events.query({ limit: 100 }),
+          events: events.query({ limit: 200 }),
           stats: events.stats(),
           streams: ctx.streams.info(),
           activeCall: activeCall ? { kioskId: activeCall.kioskId } : null,

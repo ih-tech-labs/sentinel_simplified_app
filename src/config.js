@@ -78,8 +78,8 @@ const config = {
 
   // --- Historial de alarmas ---
   DATA_DIR: process.env.DATA_DIR || path.join(ROOT, 'data'),
-  EVENTS_MEMORY_LIMIT: int('EVENTS_MEMORY_LIMIT', 500),
-  EVENTS_FILE_MAX_BYTES: int('EVENTS_FILE_MAX_MB', 10) * 1024 * 1024,
+  EVENTS_MEMORY_LIMIT: int('EVENTS_MEMORY_LIMIT', 200),
+  EVENTS_FILE_MAX_BYTES: int('EVENTS_FILE_MAX_MB', 5) * 1024 * 1024,
 
   // --- Control de luces (Arduino) ---
   GPIO_ENABLED: bool('GPIO_ENABLED', true),
