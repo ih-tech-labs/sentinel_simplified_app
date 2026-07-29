@@ -13,6 +13,7 @@ Una pantalla vertical con video de fondo, reloj y clima; un centro de monitoreo 
 | `./install.sh` | Equipo nuevo, desde cero → [INSTALL.md](INSTALL.md) |
 | `./deploy.sh` | Equipo que ya tiene la versión anterior → [DEPLOY.md](DEPLOY.md) |
 | `./remove_all.sh` | Desinstalar todo |
+| `./cleanup_old.sh` | Borrar la versión vieja y los túneles que sobren, después de migrar |
 
 Después de instalado, todo se opera con un solo comando:
 
@@ -31,14 +32,17 @@ Ver [OPERACION.md](OPERACION.md).
 ```
 sentinel/
 ├── install.sh          instalación desde cero
-├── deploy.sh           migración con vuelta atrás automática
+├── deploy.sh           migración con preflight y vuelta atrás
+├── cleanup_old.sh      limpieza posterior (versión vieja, túneles)
 ├── remove_all.sh       desinstalación
 ├── sentinel            operación del día a día
 │
 ├── lib/                lógica compartida por los scripts
 │   ├── common.sh         entrada saneada, colores, helpers HTTP
 │   ├── checks.sh         suite de verificación
+│   ├── deploy.sh         preflight, snapshot y restauración
 │   ├── tunnel.sh         túnel de Cloudflare
+│   ├── webhook.sh        diagnóstico del webhook de Verkada
 │   ├── gpio.sh           control de luces
 │   └── screen.sh         rotación de pantalla
 │

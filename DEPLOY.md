@@ -1,136 +1,189 @@
 # Migrar Costa Esmeralda
 
-Para la Raspberry que ya tiene la versión anterior corriendo con el túnel `sentinel.ihtechlabs.com`.
-
-**El túnel no se toca.** El script lo detecta, lo conserva y verifica que siga funcionando después de migrar. La URL del webhook en Verkada sigue siendo la misma.
+Para la Raspberry que ya tiene la versión anterior con el túnel `sentinel.ihtechlabs.com`.
 
 ---
 
-## Antes de empezar
+## Lo que no se toca
 
-Copiá el proyecto nuevo a la Pi, **sin pisar** la instalación actual:
+**El túnel de Cloudflare no se modifica en ningún momento** — ni al migrar, ni al volver atrás. Es lo único que no se puede reconstruir desde el equipo: si se rompe, el sitio se queda sin alarmas de Verkada y hay que ir a Cloudflare a rehacerlo.
+
+Concretamente, quedan igual:
+
+- El túnel `sentinel` y su UUID
+- El registro DNS de `sentinel.ihtechlabs.com`
+- **La URL del webhook en Verkada Command** — no hay que tocar nada allá
+- La carpeta de la versión anterior
+
+Lo que sí cambia: el servicio pm2 pasa de `sentinel-server` a `sentinel`, el autostart del kiosko apunta a la carpeta nueva, y el puerto 3000 lo sirve la versión nueva.
+
+---
+
+## 1. Copiar el proyecto
+
+Sin pisar la instalación actual:
 
 ```bash
 cd ~
-git clone <repo> sentinel-nuevo      # o scp / USB
+git clone --depth 1 git@github.com:ih-tech-labs/sentinel_simplified_app.git sentinel-nuevo
 cd sentinel-nuevo
-chmod +x *.sh sentinel
 ```
 
-El script busca la instalación anterior en las rutas habituales
-(`~/sentinel_simplified_app`, la carpeta de arriba, etc.). Si está en otro
-lado, se lo decís:
+Los scripts llegan ejecutables. Si la versión anterior no está en una ruta habitual, se la indicás con `--old-dir`.
+
+## 2. Preflight — saber de antemano si se puede
 
 ```bash
-./deploy.sh --old-dir ~/ruta/a/la/vieja
+./deploy.sh --check
 ```
 
----
+**No modifica absolutamente nada.** Verifica y reporta:
 
-## Paso a paso
+| | |
+|---|---|
+| Requisitos | Node 18+, ffmpeg, pm2, pyserial |
+| Recursos | Espacio en disco, temperatura del SoC |
+| Conectividad | npm y Cloudflare alcanzables por HTTPS |
+| Versión nueva | Archivos completos, sintaxis de todo el código |
+| Versión anterior | Que exista, y que tenga `.env` para heredar el secret |
+| Puerto | Que el del túnel coincida con el de la versión nueva |
+| Túnel | Que esté corriendo y responda desde internet |
 
-### 1. Simular
+Termina con un veredicto claro:
 
-```bash
-./deploy.sh --dry-run
+```
+TODO LISTO. Se puede migrar.
 ```
 
-No toca nada: verifica requisitos, detecta la instalación anterior y el túnel, instala dependencias y chequea la sintaxis. Si algo falta, te enterás sin haber tocado el sitio.
+o
 
-### 2. Migrar
+```
+NO MIGRAR TODAVÍA · 2 problema(s)
+```
+
+Y antes del veredicto lista explícitamente qué se toca y qué no.
+
+## 3. Migrar
 
 ```bash
 ./deploy.sh
 ```
 
-Ocho pasos:
+Vuelve a correr el preflight —si algo cambió desde el chequeo, se detiene— y te pide confirmación. Después:
 
-1. Verifica requisitos y detecta la versión anterior y el túnel
-2. Backup completo con fecha (más uno de `/etc/cloudflared`)
-3. Hereda el `.env`: el shared secret de Verkada y el puerto
+1. **Snapshot** del estado actual: qué corría en pm2, qué autostart había, a qué apuntaba el túnel
+2. **Backup** comprimido de la versión anterior, más uno de `/etc/cloudflared`
+3. **Hereda** el secret de Verkada y el puerto del `.env` viejo
 4. Instala dependencias y verifica sintaxis
-5. Detiene la versión anterior — la **detiene**, no la borra
+5. **Detiene** la versión anterior — la detiene, no la borra
 6. Levanta la nueva
-7. Verifica de punta a punta, incluido el túnel
-8. Fija la nueva como definitiva
+7. **Verifica** de punta a punta, incluido que el túnel siga respondiendo
 
-**Si algo falla en el paso 7, vuelve sola a la versión anterior.** No te deja el sitio caído.
+Si algo falla en cualquier punto, **vuelve solo al estado anterior**. No te deja el sitio caído.
 
-### 3. Verificar
+## 4. Verificar
 
 ```bash
-sentinel status
+./sentinel status
+./sentinel diagnose webhook
 ```
 
-Y desde cualquier navegador:
+Y desde cualquier navegador: `https://sentinel.ihtechlabs.com/backoffice/`
 
-```
-https://sentinel.ihtechlabs.com/backoffice/
-```
+Qué mirar:
 
-Usuario `Bunker`. La contraseña es la de siempre si heredaste el `.env`; si no, la que puso el instalador.
+- El video de fondo del kiosko va fluido
+- El tablero muestra la cámara y la telemetría se actualiza
+- Una llamada funciona en los dos sentidos
+- Una alarma real de Verkada llega y suena
 
-### 4. Reiniciar
+## 5. Reiniciar
 
 ```bash
 sudo reboot
 ```
 
-Al volver: kiosko a pantalla completa y backoffice accesible.
+Para validar que todo arranca solo.
 
 ---
 
-## Qué mirar después
-
-**Kiosko** — el video de fondo tiene que ir fluido, sin tirones. Era el problema principal.
-
-**Backoffice** — se ve la cámara, la telemetría (CPU, temperatura, RAM) se actualiza sola, el badge del puesto dice ONLINE.
-
-**Llamada** — "LLAMAR" abre la llamada, se escucha en los dos sentidos, apagar la cámara muestra el avatar en el kiosko.
-
-**Alarma de prueba** — el botón 🔔 dispara una y aparece en el registro. Recargá con F5: el evento tiene que seguir ahí. Antes se perdía.
-
-**Rendimiento** — con el backoffice cerrado, `sentinel status` debería mostrar CPU bajo. Al abrirlo arranca ffmpeg y sube; al cerrarlo, a los 25 segundos vuelve a bajar.
-
-**Verkada** — disparar una alarma real y confirmar que llega.
-
----
-
-## Si algo se ve mal
+## Volver atrás
 
 ```bash
 ./deploy.sh --rollback
 ```
 
-Detiene la nueva, restaura el autostart anterior, levanta la vieja y verifica que responda. Los kioskos se reconectan solos en unos segundos.
+Un comando. Lee el snapshot y restaura exactamente lo que había:
 
-Se puede correr en cualquier momento, también días después. El backup queda en `~/sentinel-backup-<fecha>.tar.gz`.
+- Apaga la versión nueva y libera el puerto
+- Restaura el autostart del kiosko tal cual estaba
+- Vuelve a levantar `sentinel-server`
+- Verifica que responda, local y por el túnel
+
+Se puede correr en cualquier momento, también días después. El túnel no se tocó, así que sigue sirviendo igual.
+
+Si el rollback no logra levantar la versión anterior, te lo dice y te deja los comandos para revisar a mano. El backup completo está en `~/sentinel-backup-<fecha>.tar.gz`.
 
 ---
 
-## Qué queda después
+## Limpiar, cuando estés seguro
+
+**Sólo después de confirmar que todo anda.** Después de esto el rollback deja de estar disponible.
+
+```bash
+./cleanup_old.sh --list    # ver qué hay, sin borrar nada
+./cleanup_old.sh           # limpiar, preguntando cada cosa
+```
+
+Antes de ofrecer nada, verifica que la versión nueva esté sana: servicio online, servidor respondiendo y túnel funcionando desde internet. **Si algo de eso falla, se niega a limpiar** — borrar la vieja con la nueva rota te deja sin nada.
+
+Después va preguntando de a una:
+
+- Quitar el servicio pm2 `sentinel-server`
+- Borrar la carpeta de la versión anterior *(pide escribir `BORRAR`)*
+- Borrar autostart viejos archivados
+- **Borrar túneles que sobren**
+- Borrar los backups
+
+### Sobre los túneles
+
+El túnel que usa el equipo **está protegido**: ni siquiera aparece como opción. Sólo se ofrecen los demás.
+
+Para cada uno te dice si tiene conexiones activas —lo que significa que otro equipo lo está usando y borrarlo lo dejaría sin webhook— y para confirmar hay que **escribir el nombre completo del túnel**. No alcanza con un "sí".
+
+Si sólo querés esa parte:
+
+```bash
+./cleanup_old.sh --tunnels
+```
+
+Después de borrar un túnel, acordate de sacar el CNAME huérfano en [dash.cloudflare.com](https://dash.cloudflare.com) → `ihtechlabs.com` → **DNS → Records**. El borrado del túnel no lo saca solo.
+
+---
+
+## Qué queda en disco
 
 ```
-~/sentinel-backup-<fecha>.tar.gz         backup de la versión anterior
-~/cloudflared-backup-<fecha>.tar.gz      backup del túnel
-~/sentinel-deploy-<equipo>-<fecha>.txt   reporte del deploy
-~/sentinel-deploy-<fecha>.log            log completo
-~/sentinel_simplified_app/               versión anterior, intacta
+~/sentinel-backup-<fecha>.tar.gz          versión anterior comprimida
+~/cloudflared-backup-<fecha>.tar.gz       config del túnel
+~/sentinel-deploy-<equipo>-<fecha>.txt    reporte con versiones y verificaciones
+~/sentinel-deploy-<fecha>.log             log completo de la migración
+<carpeta-nueva>/.snapshot/                estado para el rollback
 ```
 
-La carpeta de la versión anterior **no se borra**. Cuando estés seguro, la borrás vos.
+El reporte enmascara las credenciales RTSP, así que se puede archivar o compartir.
 
 ---
 
 ## Deploy remoto por SSH
 
-El script loguea todo a `~/sentinel-deploy-<fecha>.log`, así que si se corta la conexión podés reconectarte y ver qué pasó:
+Todo queda logueado. Si se corta la conexión:
 
 ```bash
 tail -f ~/sentinel-deploy-*.log
 ```
 
-Si el corte fue justo durante la migración, el estado queda en `.deploy_state` y `./deploy.sh --rollback` sigue funcionando.
+El snapshot vive en disco, así que `./deploy.sh --rollback` funciona aunque el SSH se haya caído a mitad de camino.
 
 Para traerte el reporte:
 
@@ -140,12 +193,12 @@ scp usuario@ip:~/sentinel-deploy-*.txt .
 
 ---
 
-## Diferencias con la versión anterior
+## Resumen
 
-**El túnel se conserva.** El instalador viejo hacía "destruir y recrear" sobre un túnel de nombre fijo. `deploy.sh` no lo toca: lo detecta, lo hereda y verifica que siga andando.
-
-**Los puertos 9998 y 9999 dejan de usarse.** El video ahora va por el 3000, dentro del túnel. Eso significa que el backoffice funciona remoto: antes las cámaras sólo se veían desde la LAN.
-
-**Las alarmas se persisten.** Antes se perdían al recargar la página.
-
-**El servicio se llama `sentinel`**, no `sentinel-server`. El script lo reemplaza en pm2; el viejo queda detenido hasta el paso 8, para que el rollback pueda revivirlo.
+```bash
+./deploy.sh --check       # ¿se puede? No toca nada
+./deploy.sh               # migrar (vuelve solo si falla)
+./deploy.sh --rollback    # volver atrás
+./cleanup_old.sh --list   # ver qué quedó para limpiar
+./cleanup_old.sh          # limpiar, cuando estés seguro
+```

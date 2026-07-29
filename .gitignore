@@ -32,6 +32,7 @@ gpio.log
 .stage_state
 .screen_rotation
 .deploy_state
+.snapshot/
 *.bak
 *.bak-*
 *.tar.gz
