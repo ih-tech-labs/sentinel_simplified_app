@@ -204,12 +204,48 @@
     return `${proto}//${location.host}/stream/${id}`;
   }
 
+  /**
+   * Buffer de video de jsmpeg.
+   *
+   * En streaming jsmpeg usa BitBuffer en modo EVICT, y ese evict no descarta
+   * lo más viejo: cuando no entra lo que llega, TIRA EL BUFFER ENTERO.
+   *
+   *     if (sizeNeeded > available + bytePos) { this.byteLength = 0; ... }
+   *
+   * Si adentro había un I-frame, se pierde, y el decodificador sigue aplicando
+   * P-frames sobre una referencia que nunca recibió: fondo gris con las zonas
+   * en movimiento pintadas encima, hasta el próximo I-frame completo.
+   *
+   * Con los 512 KB que traía por defecto y el bitrate actual eso pasaba incluso
+   * con el decodificador al día. Medido sobre un stream real de 20s:
+   *
+   *     512 KB -> 3 wipes    8 MB -> 0 wipes
+   *
+   * Cuanto más bitrate, menos segundos cubre el buffer: por eso subir la
+   * calidad empeoraba la imagen en vez de mejorarla.
+   */
+  const VIDEO_BUFFER_BYTES = 8 * 1024 * 1024;
+
+  function stopPlayers() {
+    Object.keys(state.players).forEach((id) => {
+      const p = state.players[id];
+      if (!p) return;
+      try { p.destroy(); } catch (err) { console.warn('[player] destroy ' + id, err); }
+      delete state.players[id];
+    });
+  }
+
   function startPlayers() {
     if (typeof JSMpeg === 'undefined') {
       console.error('jsmpeg no cargó');
       state.cameras.forEach((c) => setStageMsg(c.id, 'Reproductor no disponible', false));
       return;
     }
+
+    // socket.io reemite 'bootstrap' en CADA reconexión. Sin esto quedaban
+    // reproductores viejos vivos, cada uno con su WebSocket y su decodificador,
+    // compitiendo por el mismo canvas.
+    stopPlayers();
 
     state.cameras.forEach((cam) => {
       const canvas = $(`canvas-${cam.id}`);
@@ -219,7 +255,7 @@
           canvas,
           autoplay: true,
           audio: false,
-          videoBufferSize: 512 * 1024,
+          videoBufferSize: VIDEO_BUFFER_BYTES,
           // Sin WebGL en algunos drivers de RPi el canvas 2D es más estable,
           // pero dejamos que jsmpeg elija y caiga solo a 2D si hace falta.
           onSourceEstablished: () => setStageMsg(cam.id, null),
@@ -231,6 +267,37 @@
         setStageMsg(cam.id, 'Error de reproductor', false);
       }
     });
+
+    startCatchUp();
+  }
+
+  /**
+   * jsmpeg decodifica UN cuadro por requestAnimationFrame:
+   *
+   *     Player.prototype.updateForStreaming = function(){ this.video.decode() }
+   *
+   * Alcanza mientras el navegador va a 60 Hz. Pero si la pestaña pasa a segundo
+   * plano, hay una pausa de GC o la máquina se traba un instante, rAF se frena,
+   * los datos se acumulan y el buffer termina vaciándose de golpe.
+   *
+   * Esto drena el atraso: si hay más de un segundo pendiente, decodifica de más
+   * hasta ponerse al día. Con el buffer grande casi nunca hace falta, pero es lo
+   * que evita que un tirón se convierta en imagen rota.
+   */
+  let catchUpTimer = null;
+  function startCatchUp() {
+    if (catchUpTimer) return;
+    catchUpTimer = setInterval(() => {
+      Object.keys(state.players).forEach((id) => {
+        const p = state.players[id];
+        const v = p && p.video;
+        if (!v || !v.bits) return;
+        const pending = v.bits.byteLength - (v.bits.index >> 3);
+        if (pending < 256 * 1024) return;
+        // Tope duro: nunca bloquear el hilo principal más de unos cuadros
+        for (let i = 0; i < 30 && v.decode(); i++);
+      });
+    }, 250);
   }
 
   function setStageMsg(id, text, spinner) {
