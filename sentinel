@@ -87,6 +87,59 @@ cmd_diagnose() {
     tunnel|tunel)  . "$SENTINEL_HOME/lib/tunnel.sh"; tunnel_status ;;
     webhook|verkada) . "$SENTINEL_HOME/lib/webhook.sh"; webhook_diagnose ;;
     stream|streams)
+      # --source: probar la camara directo, sin pasar por Sentinel. Es la unica
+      # forma de saber si lo que llega YA viene roto.
+      if [ "${2:-}" = "--source" ] || [ "${2:-}" = "--fuente" ]; then
+        banner "PRUEBA DE LA FUENTE RTSP"
+        local url
+        url="$(node -e '
+          try {
+            const c = require("./src/cameras");
+            const cam = c.CAMERA_LIST.find(x => x.rtspUrl);
+            process.stdout.write(cam ? cam.rtspUrl : "");
+          } catch (e) { process.stdout.write(""); }
+        ' 2>/dev/null)"
+        [ -z "$url" ] && { err "No encontré ninguna cámara con rtspUrl"; return 1; }
+        info "Cámara: $(echo "$url" | sed -E 's#(://[^:]+):[^@]+@#\1:****@#')"
+        echo ""
+
+        step "Qué declara la cámara"
+        ffprobe -v error -rtsp_transport tcp \
+          -select_streams v:0 -show_entries stream=codec_name,width,height,r_frame_rate \
+          -of default=noprint_wrappers=1 "$url" 2>&1 | sed 's/^/    /'
+
+        step "Decodificando 10 segundos"
+        info "Sin transcodificar: sólo mirando si lo que llega está sano."
+        local out errs frames
+        # -stats es imprescindible: sin el, con loglevel warning no se imprime
+        # la linea "frame= N" y el conteo queda vacio (se leia como 0 cuadros).
+        out="$(ffmpeg -hide_banner -loglevel warning -stats -rtsp_transport tcp \
+              -i "$url" -t 10 -f null - 2>&1 || true)"
+        errs="$(echo "$out" | grep -icE 'error|corrupt|conceal|invalid|missing' || true)"
+        errs="$(echo "$errs" | tr -dc '0-9')"; errs="${errs:-0}"
+        frames="$(echo "$out" | grep -oE 'frame= *[0-9]+' | tail -1 | tr -dc '0-9')"
+        echo ""
+        info "Frames recibidos : ${frames:-no informado}"
+        info "Errores          : $errs"
+        [ "$errs" -gt 0 ] && echo "$out" | grep -iE 'error|corrupt|conceal|invalid|missing' | head -4 | sed 's/^/      /'
+        echo ""
+        hr
+        if [ "$errs" -gt 5 ]; then
+          echo -e "  ${R}${BOLD}LA FUENTE VIENE ROTA${N}"
+          echo -e "  ${D}No es Sentinel: la cámara ya entrega imagen dañada.${N}"
+          echo -e "\n  Probá el stream principal en vez del substream, o revisá"
+          echo -e "  el enlace con la cámara (wifi, PoE, saturación)."
+        elif [ -n "$frames" ] && [ "$frames" -lt 30 ] 2>/dev/null; then
+          echo -e "  ${Y}${BOLD}LA FUENTE ENTREGA MUY POCOS CUADROS${N}"
+          echo -e "  ${D}Esperaba ~100 en 10s. La cámara o el enlace no dan.${N}"
+        else
+          echo -e "  ${G}${BOLD}LA FUENTE ESTÁ SANA${N}"
+          echo -e "  ${D}Si igual se ve mal, el problema está del lado del navegador.${N}"
+        fi
+        hr; echo ""
+        return 0
+      fi
+
       banner "CALIDAD DEL STREAM"
       info "Medido en el servidor. No hace falta ver la pantalla."
       local base j; base="$(app_url)"
@@ -110,9 +163,16 @@ for s in ss:
     print("    Resincronizados   %s" % s.get("resyncs"))
     print("    Descartado        %.1f KB" % ((s.get("droppedBytes") or 0)/1024))
     print("    Clientes lentos   %s" % s.get("slowClients"))
+    print("    Errores de fuente %s" % s.get("inputErrors"))
+    if s.get("lastInputError"):
+        print("    \033[2m%s\033[0m" % s["lastInputError"])
     print()
     slow, res = s.get("slowClients") or 0, s.get("resyncs") or 0
-    if slow or res > 3:
+    ierr, up = s.get("inputErrors") or 0, s.get("uptimeS") or 1
+    if ierr > 3 and ierr / max(up, 1) > 0.2:
+        print("    \033[31m\u2718 VEREDICTO: la camara entrega imagen rota\033[0m")
+        print("    \033[2mNo es Sentinel. Confirmalo con:  sentinel diagnose stream --source\033[0m")
+    elif slow or res > 3:
         print("    \033[31m\u2718 VEREDICTO: el enlace no da abasto\033[0m")
         print("    \033[2mEl server produce bien; el cliente no llega a consumirlo.")
         print("    Bajá la calidad:  sentinel quality low\033[0m")

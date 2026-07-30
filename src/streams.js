@@ -37,6 +37,13 @@ const TS_PACKET = 188;
 const TS_SYNC = 0x47;
 
 /**
+ * Errores que ffmpeg reporta cuando lo que llega POR RTSP ya viene roto.
+ * Distinguirlos importa: el server puede estar emitiendo un caudal perfecto
+ * de imagen podrida, y desde afuera se ve igual que un problema de red.
+ */
+const INPUT_ERROR_RE = /error while decoding|corrupt|concealing|Invalid data|missing picture|no frame|decode_slice|bytestream|RTP: |max delay reached|Packet corrupt/i;
+
+/**
  * MPEG-1 solo admite oficialmente estas tasas de cuadros. Con cualquier otra,
  * ffmpeg aborta con "MPEG-1/2 does not support N/1 fps" y el stream nunca
  * arranca. Como 12 fps consume la mitad de CPU que 25 y para vigilancia
@@ -69,6 +76,8 @@ class CameraStream extends EventEmitter {
     this.resyncs = 0;            // veces que un cliente quedo atras y hubo que resincronizar
     this.droppedBytes = 0;
     this.startedAt = 0;
+    this.inputErrors = 0;        // errores de decodificacion de la fuente RTSP
+    this.lastInputError = null;
     this.tailBytes = Buffer.alloc(0);  // cola para el start code partido entre chunks
     this.lastKeyChunk = null;    // ultimo chunk que empieza un GOP, para clientes nuevos
   }
@@ -177,6 +186,8 @@ class CameraStream extends EventEmitter {
     this.keyframes = 0;
     this.lastKeyframeAt = 0;
     this.keyGapMs = [];
+    this.inputErrors = 0;
+    this.lastInputError = null;
     this.tailBytes = Buffer.alloc(0);
     this.lastKeyChunk = null;
 
@@ -195,6 +206,10 @@ class CameraStream extends EventEmitter {
       if (!line) return;
       this.stderrTail.push(line);
       if (this.stderrTail.length > 5) this.stderrTail.shift();
+      if (INPUT_ERROR_RE.test(line)) {
+        this.inputErrors++;
+        this.lastInputError = line.slice(0, 160);
+      }
       console.warn(`[STREAM:${this.id}] ffmpeg: ${line.slice(0, 200)}`);
     });
 
@@ -395,6 +410,9 @@ class CameraStream extends EventEmitter {
         : null,
       resyncs: this.resyncs,
       droppedBytes: this.droppedBytes,
+      inputErrors: this.inputErrors,
+      lastInputError: this.lastInputError,
+      uptimeS: this.startedAt ? Math.round((Date.now() - this.startedAt) / 1000) : 0,
       slowClients: Array.from(this.clients).filter((c) => c.desynced).length,
     };
   }

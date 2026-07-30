@@ -359,6 +359,9 @@ app.get('/healthz/streams', (_req, res) => {
       droppedBytes: s.droppedBytes,
       slowClients: s.slowClients,
       lastDataAgoMs: s.lastDataAgoMs,
+      inputErrors: s.inputErrors,
+      lastInputError: s.lastInputError,
+      uptimeS: s.uptimeS,
     })),
   });
 });
