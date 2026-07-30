@@ -150,8 +150,31 @@ tunnel_setup() {
   others="$(tunnel_rows | awk -v n="$name" '$2 != n {print "    · " $2}')"
   [ -n "$others" ] && { info "Otros túneles de la cuenta (no se tocan):"; echo "$others"; }
 
+  # Las credenciales se generan al CREAR el túnel y quedan sólo en esa máquina.
+  # Si este equipo no las tiene —porque el túnel se creó en otro, o porque las
+  # borró remove_all.sh— se pueden volver a bajar de la cuenta. Recrear el túnel
+  # sería destructivo y cambiaría el UUID sin necesidad.
   local cred="$HOME/.cloudflared/$uuid.json"
-  [ -f "$cred" ] || { err "Faltan las credenciales: $cred"; info "Probá con --recreate"; return 1; }
+  if [ ! -f "$cred" ]; then
+    warn "Este equipo no tiene las credenciales de '$name'"
+    info "Descargándolas de tu cuenta de Cloudflare..."
+    mkdir -p "$HOME/.cloudflared"
+    if cloudflared tunnel token --cred-file "$cred" "$name" >/dev/null 2>&1 && [ -s "$cred" ]; then
+      chmod 600 "$cred" 2>/dev/null || true
+      ok "Credenciales recuperadas (el túnel no se tocó)"
+    else
+      rm -f "$cred" 2>/dev/null || true
+      err "No se pudieron recuperar las credenciales de '$name'"
+      echo ""
+      info "Opciones:"
+      info "  · Usar otro dominio y crear un túnel nuevo:"
+      echo -e "      ${B}sentinel tunnel setup sentinel-lab.ihtechlabs.com${N}"
+      info "  · Rehacer ESTE túnel — le cambia el UUID y hay que reapuntar el DNS:"
+      echo -e "      ${B}sentinel tunnel setup $domain --recreate${N}"
+      echo ""
+      return 1
+    fi
+  fi
 
   step "4/6 · DNS"
   # `route dns -f` pisa el registro sin preguntar. Si el dominio ya lo usa otro
@@ -245,17 +268,22 @@ EOF
 tunnel_why_down() {
   local uuid="${1:-}" found=0
 
+  # Sin config no hay nada que reparar: el unico camino es crearlo. Decir
+  # "el servicio no esta instalado" ademas solo agrega ruido.
+  if [ ! -f $CF_DIR/config.yml ]; then
+    warn "CAUSA: este equipo no tiene túnel configurado"
+    info "Arreglo: sentinel tunnel setup <dominio>"
+    return 0
+  fi
+
   if ! systemctl list-unit-files 2>/dev/null | grep -q '^cloudflared\.service'; then
     err "CAUSA: el servicio no está instalado"
     info "Arreglo: sentinel tunnel fix"
     found=1
   fi
 
-  if [ ! -f $CF_DIR/config.yml ]; then
-    err "CAUSA: falta $CF_DIR/config.yml"
-    info "Arreglo: sentinel tunnel setup <dominio>"
-    found=1
-  else
+  # A partir de acá el config existe: revisamos su contenido.
+  {
     local cred
     cred="$($CF_SUDO grep -m1 'credentials-file:' $CF_DIR/config.yml 2>/dev/null | awk '{print $2}')"
     if [ -n "$cred" ] && ! $CF_SUDO test -f "$cred"; then
@@ -273,7 +301,7 @@ tunnel_why_down() {
         | python3 -c 'import sys,yaml;yaml.safe_load(sys.stdin)' >/dev/null 2>&1 \
         || { err "CAUSA: el config.yml no es YAML válido"; found=1; }
     fi
-  fi
+  }
 
   # Un origen caído da 502 desde internet, no impide que cloudflared levante,
   # pero es la confusión más común: "el túnel no anda" cuando lo que no anda
@@ -312,9 +340,21 @@ tunnel_fix() {
   info "No se crean ni se borran túneles. Sólo se repara este equipo."
   echo ""
 
-  [ -f $CF_DIR/config.yml ] || {
-    err "No hay config.yml: no hay nada que reparar."
-    info "Configuralo con: sentinel tunnel setup <dominio>"; return 1; }
+  if [ ! -f $CF_DIR/config.yml ]; then
+    warn "Este equipo no tiene túnel configurado: no hay nada que reparar."
+    echo ""
+    info "'fix' arregla una configuración existente. Para crear una:"
+    echo -e "    ${B}sentinel tunnel setup <dominio>${N}"
+    local libres
+    libres="$(tunnel_rows | awk '$4 == "" {print "    · " $2}')"
+    if [ -n "$libres" ]; then
+      echo ""
+      info "Túneles sin usar en la cuenta (poné su dominio y se reutilizan):"
+      echo "$libres"
+    fi
+    echo ""
+    return 1
+  fi
 
   local uuid; uuid="$($CF_SUDO grep -m1 '^tunnel:' $CF_DIR/config.yml 2>/dev/null | awk '{print $2}')"
 
@@ -413,7 +453,7 @@ tunnel_status() {
   fi
 
   step "Configuración local"
-  local uuid="" domain=""
+  local uuid="" domain="" no_config=0
   if [ -f /etc/cloudflared/config.yml ]; then
     uuid="$(sudo grep -m1 '^tunnel:' /etc/cloudflared/config.yml 2>/dev/null | awk '{print $2}')"
     domain="$(sudo grep -m1 'hostname:' /etc/cloudflared/config.yml 2>/dev/null | awk '{print $NF}')"
@@ -429,7 +469,10 @@ tunnel_status() {
       problems=$((problems+1))
     fi
   else
-    err "Sin /etc/cloudflared/config.yml"
+    # No es lo mismo "roto" que "nunca se configuro". Mandar a 'tunnel fix' a
+    # alguien que no tiene config lo hace correr un comando que se va a negar.
+    warn "Este equipo no tiene túnel configurado"
+    no_config=1
     problems=$((problems+1))
   fi
 
@@ -501,6 +544,18 @@ tunnel_status() {
   elif [ "$works" -eq 1 ]; then
     echo -e "  ${G}${BOLD}El túnel FUNCIONA${N} ${D}($problems observación/es de higiene)${N}"
     echo -e "\n  ${B}https://$domain/verkada-webhook${N}"
+  elif [ "${no_config:-0}" -eq 1 ]; then
+    echo -e "  ${Y}${BOLD}Falta configurar el túnel en este equipo.${N}"
+    echo -e "  ${D}No hay nada roto: nunca se configuró, o se borró con remove_all.${N}"
+    echo ""
+    echo -e "  ${B}sentinel tunnel setup <dominio>${N}"
+    local libres
+    libres="$(tunnel_rows | awk '$4 == "" {print "    · " $2}')"
+    if [ -n "$libres" ]; then
+      echo ""
+      info "Túneles de la cuenta sin usar (se reutilizan si ponés su dominio):"
+      echo "$libres"
+    fi
   else
     echo -e "  ${R}${BOLD}$problems problema(s).${N}"
     echo -e "\n  Primero probá reparar:  ${B}sentinel tunnel fix${N}"

@@ -150,6 +150,22 @@ cmd_diagnose() {
       echo "$j" | python3 -c '
 import sys, json
 d = json.load(sys.stdin)
+
+t, tst, thr = d.get("temp"), d.get("tempStatus"), d.get("throttled") or {}
+if t is not None:
+    col = "\033[31m" if tst == "critical" else ("\033[33m" if tst == "warn" else "\033[32m")
+    print()
+    print("  Temperatura del equipo: %s%.0f C\033[0m" % (col, t))
+    if thr.get("throttledNow"):
+        print("    \033[31mESTA BAJANDO EL RELOJ AHORA: el video se va a degradar\033[0m")
+    elif thr.get("throttledEver"):
+        print("    \033[33mYa bajo el reloj alguna vez desde que arranco\033[0m")
+    if thr.get("underVoltageNow"):
+        print("    \033[31mAlimentacion insuficiente: revisa la fuente\033[0m")
+    if tst == "critical":
+        print("    \033[2mA 85 C la Pi 5 se frena sola. Mejora la ventilacion o baja")
+        print("    un escalon de calidad:  sentinel quality medium\033[0m")
+
 ss = d.get("streams", [])
 if not ss:
     print("    Sin camaras configuradas"); raise SystemExit

@@ -346,8 +346,15 @@ app.get('/healthz', (_req, res) => res.json({ ok: true, uptime: Math.round(proce
  * nada de URLs RTSP, nombres de camara ni datos del sitio.
  */
 app.get('/healthz/streams', (_req, res) => {
+  // El estado termico va aca porque manda tanto como el caudal: una Pi 5 que
+  // llega a 85 C baja el reloj, ffmpeg se atrasa y el video se degrada sin que
+  // haya un solo byte perdido en la red.
+  const sys = system.snapshot();
   res.json({
     ok: true,
+    temp: sys.temp,
+    tempStatus: sys.tempStatus,
+    throttled: sys.throttled,
     streams: streams.info().map((s) => ({
       id: s.id,
       status: s.status,
