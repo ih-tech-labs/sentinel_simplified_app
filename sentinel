@@ -166,6 +166,13 @@ for s in ss:
     print("    Descartado        %.1f KB" % ((s.get("droppedBytes") or 0)/1024))
     print("    Clientes lentos   %s" % s.get("slowClients"))
     print("    Errores de fuente %s" % s.get("inputErrors"))
+    fr = s.get("frameRateCode")
+    if fr is not None:
+        VALID = {1:23.976, 2:24.0, 3:25.0, 4:29.97, 5:30.0, 6:50.0, 7:59.94, 8:60.0}
+        if fr in VALID:
+            print("    Framerate         %s fps (code %s, valido)" % (VALID[fr], fr))
+        else:
+            print("    \033[31mFramerate         code %s INVALIDO en MPEG-1\033[0m" % fr)
     if s.get("lastInputError"):
         print("    \033[2m%s\033[0m" % s["lastInputError"])
     print()
@@ -348,13 +355,14 @@ cmd_quality() {
     banner "CALIDAD DEL STREAM"
     echo -e "  Actual:  ${BOLD}$(env_get STREAM_WIDTH 640)x$(env_get STREAM_HEIGHT 360)${N} · $(env_get STREAM_FPS 12) fps · $(env_get STREAM_BITRATE 450k)"
     echo ""
-    echo -e "  ${B}low${N}     480x270 ·  8 fps ·  500k  ${D}enlaces malos o 3G${N}"
-    echo -e "  ${B}medium${N}  640x360 · 12 fps · 1200k  ${D}por defecto${N}"
-    echo -e "  ${B}high${N}    640x360 · 15 fps · 2500k  ${D}red buena${N}"
+    echo -e "  ${B}low${N}     480x272 · 24 fps · 1000k  ${D}enlaces malos${N}"
+    echo -e "  ${B}medium${N}  640x368 · 25 fps · 2000k  ${D}por defecto${N}"
+    echo -e "  ${B}high${N}    640x368 · 25 fps · 3500k  ${D}red buena${N}"
     echo ""
-    info "MPEG-1 necesita ~0.5 bits por píxel para verse bien. Por eso los"
-    info "perfiles suben el bitrate y NO la resolución: medido, 640x360 a"
-    info "1500k se ve mejor que 960x540 al mismo bitrate."
+    info "El framerate NO es libre: MPEG-1 sólo admite 24, 25, 30, 50 y 60."
+    info "Con cualquier otro, el reproductor lee frameRate=0 y deja de"
+    info "decodificar — se ve el fondo gris con el movimiento encima."
+    info "Las alturas son múltiplo de 16 para no desperdiciar macrobloques."
     echo ""
     info "Aplicar:  sentinel quality medium"
     echo ""
@@ -363,9 +371,9 @@ cmd_quality() {
 
   local w h f b
   case "$profile" in
-    low|baja)     w=480; h=270; f=8;  b=500k ;;
-    medium|media) w=640; h=360; f=12; b=1200k ;;
-    high|alta)    w=640; h=360; f=15; b=2500k ;;
+    low|baja)     w=480; h=272; f=24; b=1000k ;;
+    medium|media) w=640; h=368; f=25; b=2000k ;;
+    high|alta)    w=640; h=368; f=25; b=3500k ;;
     *) err "Perfil desconocido: $profile"; info "Usá: low | medium | high"; return 1 ;;
   esac
 

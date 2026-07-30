@@ -44,13 +44,32 @@ const TS_SYNC = 0x47;
 const INPUT_ERROR_RE = /error while decoding|corrupt|concealing|Invalid data|missing picture|no frame|decode_slice|bytestream|RTP: |max delay reached|Packet corrupt/i;
 
 /**
- * MPEG-1 solo admite oficialmente estas tasas de cuadros. Con cualquier otra,
- * ffmpeg aborta con "MPEG-1/2 does not support N/1 fps" y el stream nunca
- * arranca. Como 12 fps consume la mitad de CPU que 25 y para vigilancia
- * alcanza de sobra, pasamos `-strict -1` para habilitar tasas libres; jsmpeg
- * las reproduce sin problema.
+ * MPEG-1 admite EXACTAMENTE estas tasas de cuadros, y no hay forma de saltearlo.
+ *
+ * La cabecera de secuencia guarda el frame rate en un campo de 4 bits que es un
+ * INDICE a esta tabla, no un numero. Con `-strict -1` ffmpeg acepta 12 o 15 fps
+ * y escribe los codigos 12 y 13, que estan reservados. Cualquier decodificador
+ * que respete la norma lee ese indice fuera de tabla y devuelve 0.
+ *
+ * En jsmpeg eso es letal y silencioso:
+ *
+ *     this.frameRate = MPEG1.PICTURE_RATE[this.bits.read(4)];   // -> 0
+ *     this.advanceDecodedTime(1 / this.frameRate);              // -> Infinity
+ *
+ * El reproductor cree que va infinitamente adelantado y deja de decodificar.
+ * Se ve como fondo gris con las zonas en movimiento pintadas encima: los
+ * I-frames no se aplican nunca y solo entran algunos P-frames sueltos.
+ *
+ * Por eso NO se usa `-strict -1`: se ajusta al valor valido mas cercano.
  */
-const MPEG1_STANDARD_FPS = [24, 25, 30, 50, 60];
+const MPEG1_VALID_FPS = [24, 25, 30, 50, 60];
+
+/** Ajusta cualquier fps al valor valido mas cercano hacia arriba o abajo. */
+function nearestValidFps(fps) {
+  if (MPEG1_VALID_FPS.includes(fps)) return fps;
+  return MPEG1_VALID_FPS.reduce((best, v) =>
+    Math.abs(v - fps) < Math.abs(best - fps) ? v : best);
+}
 
 class CameraStream extends EventEmitter {
   constructor(camera) {
@@ -80,6 +99,21 @@ class CameraStream extends EventEmitter {
     this.lastInputError = null;
     this.tailBytes = Buffer.alloc(0);  // cola para el start code partido entre chunks
     this.lastKeyChunk = null;    // ultimo chunk que empieza un GOP, para clientes nuevos
+    this.frameRateCode = null;   // lo que realmente quedo escrito en la cabecera
+  }
+
+  /**
+   * Lee el frame_rate_code de la cabecera de secuencia que estamos emitiendo.
+   *
+   * Es una verificacion de lo que SALE, no de lo que configuramos: si alguna vez
+   * vuelve a colarse un valor invalido, el diagnostico lo va a mostrar en vez de
+   * dejar el video roto en silencio.
+   *
+   * Layout tras el start code: 12 bits ancho, 12 alto, 4 aspecto, 4 frame rate.
+   */
+  readFrameRateCode(buf, at) {
+    if (at + 8 > buf.length) return null;
+    return buf[at + 7] & 0x0f;
   }
 
   /**
@@ -134,8 +168,13 @@ class CameraStream extends EventEmitter {
   // -------------------------------------------------------------------------
 
   ffmpegArgs() {
-    const fps = config.STREAM_FPS;
-    const needsLooseStrict = !MPEG1_STANDARD_FPS.includes(fps);
+    const fps = nearestValidFps(config.STREAM_FPS);
+    if (fps !== config.STREAM_FPS) {
+      console.warn(
+        `[STREAM:${this.id}] STREAM_FPS=${config.STREAM_FPS} no existe en MPEG-1. ` +
+        `Usando ${fps}. Valores validos: ${MPEG1_VALID_FPS.join(', ')}.`
+      );
+    }
 
     return [
       '-hide_banner',
@@ -156,8 +195,6 @@ class CameraStream extends EventEmitter {
       '-b:v', config.STREAM_BITRATE,
       '-bf', '0',                     // sin B-frames: menos latencia y menos CPU
       '-g', String(fps * 2),
-      // Habilita tasas de cuadros fuera del estándar MPEG-1 (ver constante arriba)
-      ...(needsLooseStrict ? ['-strict', '-1'] : []),
       '-muxdelay', '0.001',
       'pipe:1',
     ];
@@ -188,6 +225,7 @@ class CameraStream extends EventEmitter {
     this.keyGapMs = [];
     this.inputErrors = 0;
     this.lastInputError = null;
+    this.frameRateCode = null;
     this.tailBytes = Buffer.alloc(0);
     this.lastKeyChunk = null;
 
@@ -365,6 +403,10 @@ class CameraStream extends EventEmitter {
       this.keyframes++;
       // Guardado para que un cliente nuevo arranque ya, sin esperar el proximo
       this.lastKeyChunk = gopAt === 0 ? chunk : Buffer.from(chunk.subarray(gopAt));
+      if (this.frameRateCode === null) {
+        const seqAt = chunk.indexOf(SEQ_HEADER, gopAt);
+        if (seqAt >= 0) this.frameRateCode = this.readFrameRateCode(chunk, seqAt);
+      }
     }
 
     for (const ws of this.clients) {
@@ -412,6 +454,7 @@ class CameraStream extends EventEmitter {
       droppedBytes: this.droppedBytes,
       inputErrors: this.inputErrors,
       lastInputError: this.lastInputError,
+      frameRateCode: this.frameRateCode,
       uptimeS: this.startedAt ? Math.round((Date.now() - this.startedAt) / 1000) : 0,
       slowClients: Array.from(this.clients).filter((c) => c.desynced).length,
     };

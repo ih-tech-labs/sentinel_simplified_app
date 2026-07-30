@@ -361,6 +361,7 @@ app.get('/healthz/streams', (_req, res) => {
       lastDataAgoMs: s.lastDataAgoMs,
       inputErrors: s.inputErrors,
       lastInputError: s.lastInputError,
+      frameRateCode: s.frameRateCode,
       uptimeS: s.uptimeS,
     })),
   });
