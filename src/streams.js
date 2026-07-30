@@ -176,12 +176,34 @@ class CameraStream extends EventEmitter {
       );
     }
 
-    return [
+    // -------------------------------------------------------------------
+    // REPLICA DE LA v4, QUE FUNCIONABA.
+    //
+    // La v4 usaba node-rtsp-stream y el comando terminaba siendo:
+    //
+    //   ffmpeg -i URL -f mpegts -codec:v mpeg1video -stats -r 24 -s 640x360
+    //          -rtsp_transport tcp -
+    //
+    // Nada mas. Todo lo que le agregue de mas resulto ser contraproducente:
+    //
+    //   -bf 0                    quitaba B-frames "para bajar latencia"
+    //   -fflags nobuffer         y con ellos cualquier margen del demuxer
+    //   -flags low_delay
+    //   -muxdelay 0.001
+    //   -g fps*2                 GOP de 2s en vez del de 12 cuadros por
+    //                            defecto: cualquier perdida tardaba 2
+    //                            segundos en recuperarse en vez de medio
+    //   -b:v 2500k               la v4 no fijaba bitrate (200k por defecto)
+    //
+    // El GOP es el que mas dolio: con I-frames cada medio segundo un glitch
+    // ni se nota; cada dos segundos es una mancha gris bien visible.
+    // -------------------------------------------------------------------
+    const gop = config.STREAM_GOP > 0 ? config.STREAM_GOP : Math.max(6, Math.round(fps / 2));
+
+    const args = [
       '-hide_banner',
       '-loglevel', 'error',
       '-nostdin',
-      '-fflags', 'nobuffer',
-      '-flags', 'low_delay',
       '-rtsp_transport', 'tcp',
       // Nota: no usamos -stimeout/-timeout porque el nombre de la opcion cambio
       // entre versiones de ffmpeg y un flag desconocido hace fallar el proceso.
@@ -190,14 +212,16 @@ class CameraStream extends EventEmitter {
       '-an',                          // sin audio: no lo usamos y ahorra CPU
       '-f', 'mpegts',
       '-codec:v', 'mpeg1video',
-      '-s', `${config.STREAM_WIDTH}x${config.STREAM_HEIGHT}`,
       '-r', String(fps),
-      '-b:v', config.STREAM_BITRATE,
-      '-bf', '0',                     // sin B-frames: menos latencia y menos CPU
-      '-g', String(fps * 2),
-      '-muxdelay', '0.001',
-      'pipe:1',
+      '-s', `${config.STREAM_WIDTH}x${config.STREAM_HEIGHT}`,
+      '-g', String(gop),
     ];
+
+    // Vacio = el default de ffmpeg, que es lo que usaba la v4
+    if (config.STREAM_BITRATE) args.push('-b:v', config.STREAM_BITRATE);
+
+    args.push('pipe:1');
+    return args;
   }
 
   start() {

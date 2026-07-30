@@ -67,10 +67,14 @@ const config = {
   WEBHOOK_TOLERANCE_S: int('WEBHOOK_TOLERANCE_S', 120),
 
   // --- Streams (transcode RTSP -> MPEG1 para jsmpeg) ---
+  // Valores de la v4, que era la que se veia bien.
   STREAM_WIDTH: int('STREAM_WIDTH', 640),
   STREAM_HEIGHT: int('STREAM_HEIGHT', 360),
-  STREAM_FPS: int('STREAM_FPS', 12),
-  STREAM_BITRATE: process.env.STREAM_BITRATE || '450k',
+  STREAM_FPS: int('STREAM_FPS', 24),
+  // Vacio = default de ffmpeg (200k), que es lo que usaba la v4.
+  STREAM_BITRATE: process.env.STREAM_BITRATE || '',
+  // 0 = mitad del fps, o sea un I-frame cada medio segundo (como la v4).
+  STREAM_GOP: int('STREAM_GOP', 0),
   // Segundos sin espectadores antes de matar ffmpeg (0 = nunca apagar)
   STREAM_IDLE_TIMEOUT_S: int('STREAM_IDLE_TIMEOUT_S', 25),
   STREAM_ON_DEMAND: bool('STREAM_ON_DEMAND', true),
