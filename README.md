@@ -11,7 +11,8 @@ Una pantalla vertical con video de fondo, reloj y clima; un centro de monitoreo 
 | | Cuándo |
 |---|---|
 | `./install.sh` | Equipo nuevo, desde cero → [INSTALL.md](INSTALL.md) |
-| `./deploy.sh` | Equipo que ya tiene la versión anterior → [DEPLOY.md](DEPLOY.md) |
+| `./deploy.sh` | Migrar conservando el túnel existente → [DEPLOY.md](DEPLOY.md) |
+| `./install.sh --rollback` | Deshacer una instalación sobre un equipo que ya tenía Sentinel → [SECUENCIA-CE.md](SECUENCIA-CE.md) |
 | `./remove_all.sh` | Desinstalar todo |
 | `./cleanup_old.sh` | Borrar la versión vieja y los túneles que sobren, después de migrar |
 

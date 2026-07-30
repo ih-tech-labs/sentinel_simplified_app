@@ -2,6 +2,8 @@
 
 Para la Raspberry que ya tiene la versión anterior con el túnel `sentinel.ihtechlabs.com`.
 
+> **¿Migrar o instalar de cero?** `deploy.sh` hereda el `.env` y las cámaras de la versión anterior y conserva el túnel. Si querés arrancar limpio —cámaras nuevas, túnel nuevo, configuración desde el asistente— usá `./install.sh`, que también tiene rollback: [SECUENCIA-CE.md](SECUENCIA-CE.md).
+
 ---
 
 ## Lo que no se toca

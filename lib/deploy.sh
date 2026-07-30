@@ -19,23 +19,32 @@ SENTINEL_DEPLOY_LOADED=1
 
 # shellcheck source=common.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+# shellcheck source=tunnel.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/tunnel.sh"
 
 SNAPSHOT_DIR="$APP_DIR/.snapshot"
+
+# Rutas parametrizables para poder probar la restauración del túnel sin root.
+# En producción valen lo de siempre; los tests las apuntan a un directorio
+# temporal. Sin esto, la parte más crítica del rollback sería la única que
+# nunca se ejecuta antes de llegar a un equipo de cliente.
+CF_DIR="${SENTINEL_CF_DIR:-/etc/cloudflared}"
+CF_SUDO="${SENTINEL_SUDO-sudo}"
 
 # ---------------------------------------------------------------------------
 # Lee el dominio del túnel activo sin modificar nada
 # ---------------------------------------------------------------------------
 current_tunnel_domain() {
-  [ -f /etc/cloudflared/config.yml ] || return 1
-  sudo grep -m1 'hostname:' /etc/cloudflared/config.yml 2>/dev/null | awk '{print $NF}'
+  [ -f "$CF_DIR/config.yml" ] || return 1
+  $CF_SUDO grep -m1 'hostname:' "$CF_DIR/config.yml" 2>/dev/null | awk '{print $NF}'
 }
 current_tunnel_uuid() {
-  [ -f /etc/cloudflared/config.yml ] || return 1
-  sudo grep -m1 '^tunnel:' /etc/cloudflared/config.yml 2>/dev/null | awk '{print $2}'
+  [ -f "$CF_DIR/config.yml" ] || return 1
+  $CF_SUDO grep -m1 '^tunnel:' "$CF_DIR/config.yml" 2>/dev/null | awk '{print $2}'
 }
 current_tunnel_port() {
-  [ -f /etc/cloudflared/config.yml ] || return 1
-  sudo grep -m1 'service: http' /etc/cloudflared/config.yml 2>/dev/null | grep -oE '[0-9]+$'
+  [ -f "$CF_DIR/config.yml" ] || return 1
+  $CF_SUDO grep -m1 'service: http' "$CF_DIR/config.yml" 2>/dev/null | grep -oE '[0-9]+$'
 }
 
 # ---------------------------------------------------------------------------
@@ -163,9 +172,21 @@ deploy_preflight() {
     systemctl is-active --quiet cloudflared 2>/dev/null && ok "cloudflared corriendo" \
       || { err "cloudflared no está corriendo"; problems=$((problems+1)); }
 
+    # Acá se mide si el TÚNEL llega al origen, no qué versión corre del otro
+    # lado. Un 404 significa que Express contestó: la versión anterior no
+    # tiene /healthz, esa ruta se agregó en la nueva. Marcarlo como problema
+    # sería un falso positivo justo en el chequeo previo a migrar.
     local code; code="$(http_code "https://$domain/healthz" 12)"
-    [ "$code" = "200" ] && ok "Responde desde internet (HTTP 200)" \
-      || { warn "https://$domain/healthz devolvió HTTP $code"; warnings=$((warnings+1)); }
+    case "$code" in
+      200) ok "Responde desde internet (HTTP 200)" ;;
+      000) err "No responde desde internet: el túnel no está llegando"
+           problems=$((problems+1)) ;;
+      530|502|503)
+           err "HTTP $code — Cloudflare no alcanza el origen"
+           problems=$((problems+1)) ;;
+      *)   ok "El túnel llega al origen (HTTP $code)"
+           info "La versión anterior no tiene /healthz; después de migrar da 200." ;;
+    esac
   fi
 
   # --- Qué se toca y qué no -------------------------------------------------
@@ -230,9 +251,19 @@ deploy_snapshot() {
   mkdir -p "$SNAPSHOT_DIR/autostart"
   cp "$HOME/.config/autostart"/sentinel*.desktop "$SNAPSHOT_DIR/autostart/" 2>/dev/null || true
 
-  # Config del túnel, sólo como respaldo de lectura
-  [ -f /etc/cloudflared/config.yml ] && \
-    sudo cp /etc/cloudflared/config.yml "$SNAPSHOT_DIR/cloudflared-config.yml" 2>/dev/null || true
+  # Túnel COMPLETO: config.yml, credenciales y cert. Con esto se puede
+  # devolver el equipo a su túnel original aunque en el medio se haya
+  # configurado otro distinto.
+  if [ -d "$CF_DIR" ]; then
+    $CF_SUDO tar -czf "$SNAPSHOT_DIR/cloudflared.tar.gz" \
+      -C "$(dirname "$CF_DIR")" "$(basename "$CF_DIR")" 2>/dev/null \
+      && $CF_SUDO chown "$(id -u):$(id -g)" "$SNAPSHOT_DIR/cloudflared.tar.gz" 2>/dev/null
+    local tname; tname="$(tunnel_name_of "$(current_tunnel_uuid 2>/dev/null)" 2>/dev/null || true)"
+    echo "TUNNEL_NAME=$tname" >> "$SNAPSHOT_DIR/state"
+    ok "Túnel fotografiado ${D}($tname → $(current_tunnel_domain 2>/dev/null))${N}"
+  else
+    echo "TUNNEL_NAME=" >> "$SNAPSHOT_DIR/state"
+  fi
 
   chmod -R 700 "$SNAPSHOT_DIR" 2>/dev/null || true
   ok "Estado anterior fotografiado en .snapshot/"
@@ -261,7 +292,7 @@ deploy_restore() {
     warn "Sin snapshot: se restaura con los valores por defecto"
   fi
 
-  step "1/4 · Apagando la versión nueva"
+  step "1/5 · Apagando la versión nueva"
   pm2 stop sentinel        >/dev/null 2>&1 && ok "sentinel detenido" || true
   pm2 delete sentinel      >/dev/null 2>&1 || true
   pm2 delete sentinel-gpio >/dev/null 2>&1 || true
@@ -272,7 +303,7 @@ deploy_restore() {
   local pids; pids="$(sudo lsof -ti :"${PORT:-3000}" 2>/dev/null || true)"
   [ -n "$pids" ] && { echo "$pids" | xargs -r sudo kill -TERM 2>/dev/null; sleep 1; }
 
-  step "2/4 · Restaurando el autostart"
+  step "2/5 · Restaurando el autostart"
   rm -f "$HOME/.config/autostart"/sentinel-kiosk.desktop 2>/dev/null || true
   if [ -d "$SNAPSHOT_DIR/autostart" ] && ls "$SNAPSHOT_DIR/autostart"/*.desktop >/dev/null 2>&1; then
     mkdir -p "$HOME/.config/autostart"
@@ -282,7 +313,7 @@ deploy_restore() {
     info "No había autostart previo que restaurar"
   fi
 
-  step "3/4 · Levantando la versión anterior"
+  step "3/5 · Levantando la versión anterior"
   if pm2_exists sentinel-server; then
     pm2 restart sentinel-server >/dev/null 2>&1 && ok "sentinel-server reiniciado"
   elif [ -n "${OLD_DIR:-}" ] && [ -f "$OLD_DIR/src/server.js" ]; then
@@ -293,12 +324,10 @@ deploy_restore() {
   fi
   pm2 save >/dev/null 2>&1 || true
 
-  step "4/4 · Verificando"
-  # El túnel no se tocó en ningún momento, pero confirmamos que sigue sirviendo
-  if [ -n "${TUNNEL_DOMAIN:-}" ]; then
-    systemctl is-active --quiet cloudflared 2>/dev/null && ok "cloudflared sigue corriendo" \
-      || { sudo systemctl restart cloudflared >/dev/null 2>&1; sleep 4; }
-  fi
+  step "4/5 · Restaurando el túnel"
+  deploy_restore_tunnel
+
+  step "5/5 · Verificando"
 
   if wait_for_http "http://localhost:${PORT:-3000}/" 25; then
     ok "La versión anterior responde"
@@ -318,4 +347,93 @@ deploy_restore() {
     [ -n "${OLD_DIR:-}" ] && echo -e "    cd $OLD_DIR && node src/server.js"
   fi
   echo ""
+}
+
+
+# ---------------------------------------------------------------------------
+# deploy_restore_tunnel · devolver el túnel exactamente a como estaba
+#
+# Si entre el snapshot y ahora se configuró OTRO túnel, hay dos cosas que
+# arreglar y las dos importan:
+#
+#   1. /etc/cloudflared apunta al túnel nuevo  → se restaura del snapshot
+#   2. El DNS puede haber quedado tomado por el túnel nuevo, si se reusó el
+#      mismo hostname → se vuelve a apuntar al viejo
+#
+# Sin el punto 2, el túnel original quedaría corriendo pero sin nadie que le
+# mande tráfico: el sitio seguiría sin webhook y el rollback sería una
+# ilusión.
+# ---------------------------------------------------------------------------
+deploy_restore_tunnel() {
+  local snap="$SNAPSHOT_DIR/cloudflared.tar.gz"
+
+  if [ ! -f "$snap" ]; then
+    info "No hay túnel en el snapshot: no había ninguno configurado antes"
+    return 0
+  fi
+
+  # shellcheck disable=SC1090
+  [ -f "$SNAPSHOT_DIR/state" ] && . "$SNAPSHOT_DIR/state"
+
+  local cur_uuid; cur_uuid="$(current_tunnel_uuid 2>/dev/null || true)"
+  if [ "$cur_uuid" = "${TUNNEL_UUID:-}" ]; then
+    ok "El túnel ya es el original ${D}(${TUNNEL_NAME:-?})${N}"
+  else
+    warn "El túnel actual ($cur_uuid) no es el original (${TUNNEL_UUID:-?})"
+    $CF_SUDO systemctl stop cloudflared >/dev/null 2>&1 || true
+
+    # Guardamos lo que hay ahora, por si hiciera falta volver a mirarlo
+    [ -d "$CF_DIR" ] && $CF_SUDO mv "$CF_DIR" "${CF_DIR}.reemplazado-$(date +%Y%m%d-%H%M%S)" 2>/dev/null
+
+    if $CF_SUDO tar -xzf "$snap" -C "$(dirname "$CF_DIR")" 2>/dev/null; then
+      ok "$CF_DIR restaurado del snapshot"
+    else
+      err "No se pudo restaurar $CF_DIR"
+      return 1
+    fi
+
+    $CF_SUDO cloudflared service uninstall >/dev/null 2>&1 || true
+    $CF_SUDO cloudflared service install   >/dev/null 2>&1 || true
+    $CF_SUDO systemctl daemon-reload >/dev/null 2>&1 || true
+    $CF_SUDO systemctl enable cloudflared  >/dev/null 2>&1 || true
+    $CF_SUDO systemctl restart cloudflared >/dev/null 2>&1 || true
+    sleep 5
+  fi
+
+  if [ -n "$CF_SUDO" ]; then
+    systemctl is-active --quiet cloudflared 2>/dev/null && ok "cloudflared corriendo" \
+      || { err "cloudflared no arrancó"; info "sudo journalctl -u cloudflared -n 30"; }
+  fi
+
+  # El DNS: ¿sigue apuntando al túnel original?
+  if [ -n "${TUNNEL_DOMAIN:-}" ] && [ -n "${TUNNEL_UUID:-}" ]; then
+    local dns_uuid; dns_uuid="$(tunnel_dns_uuid "$TUNNEL_DOMAIN" 2>/dev/null || true)"
+    if [ -z "$dns_uuid" ]; then
+      info "No pude verificar el DNS (falta dig/host)"
+    elif [ "$dns_uuid" = "$TUNNEL_UUID" ]; then
+      ok "$TUNNEL_DOMAIN sigue apuntando al túnel original"
+    else
+      warn "$TUNNEL_DOMAIN quedó apuntando a otro túnel ($dns_uuid)"
+
+      # Si el snapshot no llegó a guardar el nombre —porque en ese momento no
+      # se pudo consultar la cuenta— lo resolvemos ahora a partir del UUID.
+      # Sin nombre no hay forma de re-apuntar el DNS, y el rollback quedaría
+      # a medias: el túnel viejo corriendo pero sin tráfico.
+      local tname="${TUNNEL_NAME:-}"
+      [ -z "$tname" ] && tname="$(tunnel_name_of "$TUNNEL_UUID" 2>/dev/null || true)"
+
+      if [ -n "$tname" ]; then
+        info "Devolviéndolo a '$tname'..."
+        cloudflared tunnel route dns -f "$tname" "$TUNNEL_DOMAIN" >/dev/null 2>&1 \
+          && ok "DNS devuelto al túnel original" \
+          || { err "No se pudo re-apuntar el DNS"
+               info "Hacelo a mano: cloudflared tunnel route dns -f $tname $TUNNEL_DOMAIN"; }
+      else
+        err "No pude resolver el nombre del túnel original ($TUNNEL_UUID)"
+        info "Re-apuntá el DNS a mano en Cloudflare → DNS → Records:"
+        info "  CNAME $(echo "$TUNNEL_DOMAIN" | cut -d. -f1) → $TUNNEL_UUID.cfargotunnel.com"
+      fi
+    fi
+  fi
+  return 0
 }

@@ -76,6 +76,36 @@ Al volver: kiosko a pantalla completa y tablero accesible.
 
 ---
 
+## Instalar sobre un equipo que ya tenía Sentinel
+
+Si el equipo ya tiene una versión corriendo, el instalador **la detecta y la fotografía antes de tocar nada**. Antes de pedirte confirmación te lo muestra:
+
+```
+Este equipo ya tenía Sentinel
+  · servicio pm2 'sentinel-server'
+  · túnel sentinel.ihtechlabs.com
+  · autostart del kiosko
+
+Se va a fotografiar todo antes de tocar nada.
+Para deshacer:  ./install.sh --rollback
+```
+
+Si ese bloque no aparece, cancelá: no detectó lo anterior y no vas a tener vuelta atrás.
+
+La versión anterior se **detiene, no se borra**. Para deshacer:
+
+```bash
+./install.sh --rollback
+```
+
+Restaura el autostart, revive el servicio anterior y **devuelve el túnel al original** — `/etc/cloudflared` entero, con credenciales y cert, y el DNS repuntado si el túnel nuevo se quedó con el dominio.
+
+El túnel nuevo sigue existiendo en tu cuenta de Cloudflare; el rollback es local. Se borra después con `./cleanup_old.sh --tunnels`.
+
+Para el paso a paso completo de Costa Esmeralda: [SECUENCIA-CE.md](SECUENCIA-CE.md).
+
+---
+
 ## Cuidado con crear túneles de más
 
 Si en la cuenta de Cloudflare ya existe un túnel para este equipo, el instalador lo **lista antes de preguntarte el dominio**. Si usás el mismo dominio, se reutiliza en vez de crear otro.

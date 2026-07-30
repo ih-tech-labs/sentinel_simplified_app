@@ -5,10 +5,18 @@
 #  Para una Raspberry Pi 5 recién formateada con Raspberry Pi OS (Bookworm).
 #
 #      ./install.sh                 asistente completo
+#      ./install.sh --rollback      deshacer y volver al estado anterior
 #      ./install.sh --reconfigure   sólo el asistente, sin tocar paquetes
 #      ./install.sh --skip-apt      no instalar paquetes del sistema
 #
-#  Para migrar un equipo que ya tiene la versión anterior, usá ./deploy.sh
+#  INSTALAR SOBRE UN EQUIPO QUE YA TENÍA SENTINEL
+#  Si detecta una instalación previa —servicio pm2, túnel, autostart— la
+#  fotografía antes de tocar nada, y con --rollback vuelve a ese estado
+#  exacto: servicios, autostart y túnel, incluido el registro DNS si el
+#  túnel nuevo se quedó con el hostname.
+#
+#  Alternativa: ./deploy.sh migra conservando el túnel existente en vez de
+#  crear uno nuevo.
 # =============================================================================
 set -uo pipefail
 
@@ -17,16 +25,31 @@ APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$APP_DIR/lib/common.sh"
 # shellcheck source=lib/checks.sh
 . "$APP_DIR/lib/checks.sh"
+# shellcheck source=lib/deploy.sh
+. "$APP_DIR/lib/deploy.sh"
 
-SKIP_APT=0; RECONFIGURE=0
+SKIP_APT=0; RECONFIGURE=0; DO_ROLLBACK=0
 for arg in "$@"; do
   case "$arg" in
     --skip-apt)    SKIP_APT=1 ;;
     --reconfigure) RECONFIGURE=1; SKIP_APT=1 ;;
-    -h|--help)     sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --rollback)    DO_ROLLBACK=1 ;;
+    -h|--help)     sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)             die "Opción desconocida: $arg" ;;
   esac
 done
+
+# --- Rollback: deshacer y volver al estado fotografiado --------------------
+if [ "$DO_ROLLBACK" -eq 1 ]; then
+  require_not_root
+  require_app_dir
+  if [ ! -f "$APP_DIR/.snapshot/state" ]; then
+    die "No hay snapshot: esta instalación no tenía nada previo que restaurar.
+    Para desinstalar del todo: ./remove_all.sh"
+  fi
+  deploy_restore "pedido manual"
+  exit 0
+fi
 
 # Defaults: el script corre con `set -u`, así que toda variable usada en el
 # resumen tiene que existir aunque se saltee su sección.
@@ -34,6 +57,7 @@ SITE_NAME=""; SITE_SLUG=""; DEFAULT_DOMAIN=""; APP_PORT=3000; AUTH_USER=Bunker; 
 VERKADA_SECRET=""; TUNNEL_ENABLED=0; TUNNEL_DOMAIN=""; TUNNEL_NAME=""; TUNNEL_OK=0
 KIOSK_ENABLED=0; KIOSK_ID=""; SCREEN_ROTATION=0; ROT_LABEL="sin rotación"
 GPIO_ENABLED=false
+PREVIOUS=0; OLD_INSTALL=""; BACKUP=""
 CAM_IDS=(); CAM_NAMES=(); CAM_ZONES=(); CAM_URLS=(); CAM_DEVICES=()
 
 clear 2>/dev/null || true
@@ -442,8 +466,61 @@ done
   echo ""
 }
 
+# --- ¿Hay algo previo que preservar? --------------------------------------
+# Si este equipo ya tenía Sentinel corriendo o un túnel configurado, se
+# fotografía todo antes de tocar nada. Sin esta foto, "instalar de cero"
+# sería un camino de ida.
+PREVIOUS=0; PREV_REASONS=()
+pm2_exists sentinel        && { PREVIOUS=1; PREV_REASONS+=("servicio pm2 'sentinel'"); }
+pm2_exists sentinel-server && { PREVIOUS=1; PREV_REASONS+=("servicio pm2 'sentinel-server'"); }
+[ -f /etc/cloudflared/config.yml ] && {
+  PREVIOUS=1
+  PREV_REASONS+=("túnel $(current_tunnel_domain 2>/dev/null)")
+}
+ls "$HOME/.config/autostart"/sentinel*.desktop >/dev/null 2>&1 && {
+  PREVIOUS=1; PREV_REASONS+=("autostart del kiosko"); }
+
+OLD_INSTALL=""
+for C in "$(dirname "$APP_DIR")" "$HOME/sentinel_simplified_app" "$HOME/sentinel"; do
+  [ "$(cd "$C" 2>/dev/null && pwd)" = "$APP_DIR" ] && continue
+  [ -f "$C/src/server.js" ] && { OLD_INSTALL="$(cd "$C" && pwd)"; PREVIOUS=1
+                                 PREV_REASONS+=("instalación en $OLD_INSTALL"); break; }
+done
+
+if [ "$PREVIOUS" -eq 1 ]; then
+  echo ""
+  hr
+  echo -e "  ${Y}${BOLD}Este equipo ya tenía Sentinel${N}"
+  hr
+  for R in "${PREV_REASONS[@]}"; do info "· $R"; done
+  echo ""
+  info "Se va a fotografiar todo antes de tocar nada."
+  echo -e "  Para deshacer:  ${B}./install.sh --rollback${N}"
+  hr
+fi
+
 echo ""
 confirm "¿Confirmás e instalo?" "s" || die "Cancelado. No se escribió nada."
+
+# ===========================================================================
+if [ "$PREVIOUS" -eq 1 ]; then
+step "Fotografiando el estado actual"
+deploy_snapshot "$OLD_INSTALL"
+
+if [ -n "$OLD_INSTALL" ]; then
+  BACKUP="$HOME/sentinel-backup-$(date +%Y%m%d-%H%M%S).tar.gz"
+  tar --exclude='node_modules' --exclude='.git' -czf "$BACKUP" \
+      -C "$(dirname "$OLD_INSTALL")" "$(basename "$OLD_INSTALL")" 2>/dev/null \
+    && ok "Backup: $BACKUP ($(du -h "$BACKUP" | cut -f1))" \
+    || warn "No se pudo respaldar la instalación anterior"
+fi
+
+# El servicio viejo se DETIENE, no se borra: el rollback lo revive.
+if pm2_exists sentinel-server; then
+  pm2 stop sentinel-server >/dev/null 2>&1
+  ok "sentinel-server detenido ${D}(no borrado)${N}"
+fi
+fi
 
 # ===========================================================================
 step "Dependencias de Node"
@@ -683,5 +760,14 @@ echo -e "  ${B}sentinel${N}             ${D}todos los comandos${N}"
 echo ""
 echo -e "  Reporte: ${B}$REPORT${N}"
 echo ""
+if [ "$PREVIOUS" -eq 1 ]; then
+  hr
+  echo -e "  ${BOLD}¿Salió mal? Volvé al estado anterior:${N}"
+  echo -e "    ${B}./install.sh --rollback${N}"
+  echo -e "  ${D}Restaura servicios, autostart y el túnel, incluido el DNS.${N}"
+  [ -n "$BACKUP" ] && echo -e "  ${D}Backup: $BACKUP${N}"
+  hr
+  echo ""
+fi
 echo -e "  ${Y}Reiniciá para validar el arranque automático:${N} ${B}sudo reboot${N}"
 echo ""
