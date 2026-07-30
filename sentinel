@@ -10,6 +10,8 @@
 #      sentinel kiosk [id]          abrir el kiosko en esta pantalla
 #      sentinel logs [qué]          logs (server | gpio | tunnel | all)
 #      sentinel restart [qué]       reiniciar (all | server | gpio | tunnel)
+#      sentinel try <url-rtsp>      probar una fuente sin cambiar nada
+#      sentinel camera-url <url>    cambiar la URL RTSP de la cámara
 #      sentinel quality [perfil]    calidad del stream (low | medium | high)
 #      sentinel video <archivo>     optimizar el video de fondo
 #      sentinel password [clave]    cambiar la contraseña del backoffice
@@ -225,6 +227,116 @@ print()
       echo ""
       return $rc ;;
   esac
+}
+
+# ---------------------------------------------------------------------------
+# cmd_try <url-rtsp> — probar una URL SIN cambiar nada
+#
+# La Pi 5 no tiene decodificador H.264 por hardware: todo el 1080p se decodifica
+# en CPU. Una fuente en alta se ve mejor, pero solo si el equipo la aguanta.
+# Esto lo mide antes de tocar la configuracion.
+cmd_try() {
+  local url="${1:-}"
+  [ -z "$url" ] && { err "Falta la URL. Uso: sentinel try rtsp://..."; return 1; }
+
+  banner "PROBAR UNA FUENTE RTSP"
+  info "No cambia nada. Solo mide."
+  echo -e "  ${D}$(echo "$url" | sed -E 's#(://[^:]+):[^@]+@#\1:****@#')${N}"
+
+  step "1/3 · Qué entrega la cámara"
+  local probe w h fps codec
+  probe="$(ffprobe -v error -rtsp_transport tcp -select_streams v:0 \
+    -show_entries stream=codec_name,width,height,r_frame_rate \
+    -of default=noprint_wrappers=1:nokey=1 "$url" 2>/dev/null | tr '\n' ' ')"
+  [ -z "$probe" ] && { err "No pude conectarme a esa URL"; info "Revisá usuario, clave y que el equipo llegue a la cámara."; return 1; }
+  codec="$(echo "$probe" | awk '{print $1}')"
+  w="$(echo "$probe" | awk '{print $2}')"
+  h="$(echo "$probe" | awk '{print $3}')"
+  fps="$(echo "$probe" | awk '{print $4}' | awk -F/ '{if($2)printf "%.0f",$1/$2; else print $1}')"
+  ok "$codec · ${w}x${h} · ${fps} fps"
+
+  step "2/3 · Transcodificando 15s con la calidad actual"
+  local ow oh ofps
+  ow="$(env_get STREAM_WIDTH 640)"; oh="$(env_get STREAM_HEIGHT 360)"; ofps="$(env_get STREAM_FPS 12)"
+  info "Salida: ${ow}x${oh} · ${ofps} fps · $(env_get STREAM_BITRATE 1200k)"
+
+  local tmp; tmp="$(mktemp -u /tmp/sentinel-try-XXXX).ts"
+  local t0 t1 cpu_before cpu_after out
+  cpu_before="$(awk '/^cpu /{print ($2+$3+$4+$5+$6+$7+$8)" "($5+$6); exit}' /proc/stat)"
+  t0="$(date +%s)"
+  out="$(ffmpeg -hide_banner -loglevel warning -stats -rtsp_transport tcp -i "$url" \
+        -t 15 -an -f mpegts -codec:v mpeg1video -s ${ow}x${oh} -r "$ofps" \
+        -b:v "$(env_get STREAM_BITRATE 1200k)" -bf 0 -g $((ofps*2)) -strict -1 \
+        "$tmp" -y 2>&1 || true)"
+  t1="$(date +%s)"
+  cpu_after="$(awk '/^cpu /{print ($2+$3+$4+$5+$6+$7+$8)" "($5+$6); exit}' /proc/stat)"
+
+  local speed frames errs
+  speed="$(echo "$out" | grep -oE 'speed= *[0-9.]+x' | tail -1 | tr -dc '0-9.')"
+  frames="$(echo "$out" | grep -oE 'frame= *[0-9]+' | tail -1 | tr -dc '0-9')"
+  errs="$(echo "$out" | grep -icE 'error|corrupt|conceal|invalid' || true)"
+  errs="$(echo "$errs" | tr -dc '0-9')"; errs="${errs:-0}"
+
+  echo ""
+  info "Frames    : ${frames:-no informado}"
+  info "Velocidad : ${speed:-?}x  ${D}(1.0x = va justo en tiempo real)${N}"
+  info "Errores   : $errs"
+  [ -f "$tmp" ] && info "Salida    : $(du -h "$tmp" | cut -f1) en $((t1-t0))s"
+
+  step "3/3 · Veredicto"
+  local ncpu; ncpu="$(nproc 2>/dev/null || echo 4)"
+  # Ocupacion real = (delta total - delta ocioso) / delta total
+  local used; used="$(awk -v A="$cpu_before" -v B="$cpu_after" 'BEGIN{
+      split(A,a," "); split(B,b," ");
+      dt=b[1]-a[1]; di=b[2]-a[2];
+      if(dt<=0){print 0; exit}
+      p=(dt-di)/dt*100; if(p<0)p=0; if(p>100)p=100;
+      printf "%.0f", p }')"
+  info "CPU del equipo durante la prueba: ~${used}% (${ncpu} núcleos)"
+  echo ""
+  hr
+  local ok_speed; ok_speed="$(awk -v s="${speed:-0}" 'BEGIN{print (s>=0.95)?1:0}')"
+  if [ "$errs" -gt 5 ]; then
+    echo -e "  ${R}${BOLD}ESA FUENTE VIENE ROTA${N}"
+    echo -e "  ${D}No sirve como origen. Probá la otra URL.${N}"
+  elif [ "$ok_speed" -eq 1 ] && [ "${used:-100}" -lt 70 ]; then
+    echo -e "  ${G}${BOLD}LA PI LA AGUANTA BIEN${N}"
+    echo -e "  ${D}Va en tiempo real y sobra CPU. Podés usar esta fuente.${N}"
+    echo -e "\n  Para dejarla fija:  ${B}sentinel camera-url '<url>'${N}"
+  elif [ "$ok_speed" -eq 1 ]; then
+    echo -e "  ${Y}${BOLD}ANDA, PERO JUSTO${N}"
+    echo -e "  ${D}Tiempo real sí, pero ~${used}% de CPU. Con alarmas y llamada"
+    echo -e "  simultáneas puede quedarse corta.${N}"
+  else
+    echo -e "  ${R}${BOLD}LA PI NO LA AGUANTA${N}"
+    echo -e "  ${D}Va a ${speed:-?}x: se atrasa y se acumula retardo."
+    echo -e "  La Pi 5 no tiene decodificador H.264 por hardware.${N}"
+    echo -e "\n  Quedate con el substream, y subí la calidad de SALIDA:"
+    echo -e "    ${B}sentinel quality high${N}"
+  fi
+  hr; echo ""
+  rm -f "$tmp"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_camera_url <url> — cambiar la URL RTSP de la camara
+cmd_camera_url() {
+  local url="${1:-}"
+  [ -z "$url" ] && { err "Falta la URL. Uso: sentinel camera-url 'rtsp://...'"; return 1; }
+  local f="$APP_DIR/config/cameras.json"
+  [ -f "$f" ] || { err "No existe $f"; return 1; }
+  cp "$f" "$f.bak-$(date +%Y%m%d-%H%M%S)" && ok "Respaldo guardado"
+  URL="$url" node -e '
+    const fs=require("fs"), f=process.argv[1];
+    const j=JSON.parse(fs.readFileSync(f,"utf8"));
+    const cam=(j.cameras||[]).find(c=>c.rtspUrl) || (j.cameras||[])[0];
+    if(!cam){console.error("sin camaras");process.exit(1);}
+    cam.rtspUrl=process.env.URL;
+    fs.writeFileSync(f, JSON.stringify(j,null,2));
+    console.error("actualizada: "+cam.name);
+  ' "$f" || { err "No se pudo actualizar"; return 1; }
+  ok "URL actualizada"
+  cmd_restart server
 }
 
 # ---------------------------------------------------------------------------
@@ -532,6 +644,8 @@ cmd_version() {
 require_app_dir
 CMD="${1:-}"; shift || true
 case "$CMD" in
+  try|probar)          cmd_try "$@" ;;
+  camera-url)          cmd_camera_url "$@" ;;
   quality|calidad)     cmd_quality "$@" ;;
   status|estado)       cmd_status "$@" ;;
   diagnose|diag)       cmd_diagnose "$@" ;;
