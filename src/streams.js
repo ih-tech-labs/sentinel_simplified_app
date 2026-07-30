@@ -309,14 +309,14 @@ class CameraStream extends EventEmitter {
   // -------------------------------------------------------------------------
 
   addClient(ws) {
-    ws.desynced = false;
+    // Arranca DESINCRONIZADO a proposito: asi el primer byte que recibe es el
+    // comienzo de un GOP entero. Mandarle el ultimo I-frame guardado parecia
+    // mas rapido, pero le entregaba el arranque de un GOP viejo seguido del
+    // stream en vivo desde otro punto — un empalme roto, justo el sintoma de
+    // "lo que se mueve se ve, lo que esta quieto es una mancha".
+    ws.desynced = true;
     ws.dropped = 0;
     this.clients.add(ws);
-    // Arrancar desde el ultimo I-frame en vez de esperar el proximo: el video
-    // aparece al instante y ademas empieza sincronizado.
-    if (this.lastKeyChunk && ws.readyState === ws.OPEN) {
-      try { ws.send(this.lastKeyChunk, { binary: true }); } catch (_) { /* ignore */ }
-    }
     if (this.idleTimer) {
       clearTimeout(this.idleTimer);
       this.idleTimer = null;

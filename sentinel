@@ -236,9 +236,13 @@ cmd_quality() {
     banner "CALIDAD DEL STREAM"
     echo -e "  Actual:  ${BOLD}$(env_get STREAM_WIDTH 640)x$(env_get STREAM_HEIGHT 360)${N} · $(env_get STREAM_FPS 12) fps · $(env_get STREAM_BITRATE 450k)"
     echo ""
-    echo -e "  ${B}low${N}     480x270 ·  8 fps · 250k   ${D}enlaces malos o 3G${N}"
-    echo -e "  ${B}medium${N}  640x360 · 12 fps · 700k   ${D}por defecto${N}"
-    echo -e "  ${B}high${N}    960x540 · 15 fps · 1500k  ${D}red buena${N}"
+    echo -e "  ${B}low${N}     480x270 ·  8 fps ·  500k  ${D}enlaces malos o 3G${N}"
+    echo -e "  ${B}medium${N}  640x360 · 12 fps · 1200k  ${D}por defecto${N}"
+    echo -e "  ${B}high${N}    640x360 · 15 fps · 2500k  ${D}red buena${N}"
+    echo ""
+    info "MPEG-1 necesita ~0.5 bits por píxel para verse bien. Por eso los"
+    info "perfiles suben el bitrate y NO la resolución: medido, 640x360 a"
+    info "1500k se ve mejor que 960x540 al mismo bitrate."
     echo ""
     info "Aplicar:  sentinel quality medium"
     echo ""
@@ -247,9 +251,9 @@ cmd_quality() {
 
   local w h f b
   case "$profile" in
-    low|baja)     w=480; h=270; f=8;  b=250k ;;
-    medium|media) w=640; h=360; f=12; b=700k ;;
-    high|alta)    w=960; h=540; f=15; b=1500k ;;
+    low|baja)     w=480; h=270; f=8;  b=500k ;;
+    medium|media) w=640; h=360; f=12; b=1200k ;;
+    high|alta)    w=640; h=360; f=15; b=2500k ;;
     *) err "Perfil desconocido: $profile"; info "Usá: low | medium | high"; return 1 ;;
   esac
 

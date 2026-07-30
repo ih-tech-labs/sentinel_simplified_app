@@ -453,8 +453,16 @@ tunnel_status() {
     else
       local dns_uuid; dns_uuid="$(tunnel_dns_uuid "$domain")"
       if [ -z "$dns_uuid" ]; then
-        err "$domain no resuelve a un túnel"
-        problems=$((problems+1))
+        # Con el proxy de Cloudflare activado (la nube naranja) el CNAME a
+        # .cfargotunnel.com no se publica: dig devuelve las IP del proxy. No
+        # poder verlo NO es un problema, y de hecho es lo normal y lo deseable.
+        # La prueba que vale es la peticion real de mas abajo.
+        if [ -n "$(dig +short A "$domain" @1.1.1.1 2>/dev/null | head -1)" ]; then
+          ok "$domain resuelve (CNAME oculto por el proxy de Cloudflare)"
+        else
+          err "$domain no resuelve"
+          problems=$((problems+1))
+        fi
       elif [ "$dns_uuid" = "$uuid" ]; then
         ok "$domain apunta a este túnel"
       else
