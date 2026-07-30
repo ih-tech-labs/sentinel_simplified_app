@@ -256,3 +256,25 @@ Para conseguir el `deviceId`: disparás una alarma real, mirás `sentinel logs s
 | `~/.config/autostart/sentinel-kiosk.desktop` | Autostart del kiosko |
 
 `.env` y `cameras.json` quedan con permisos `600`: contienen el hash de la contraseña y las credenciales de las cámaras.
+
+---
+
+## El túnel no levanta
+
+```bash
+sentinel diagnose tunnel     # qué pasa, y por qué
+sentinel tunnel fix          # repararlo
+sentinel tunnel fix --http2  # si la red del sitio filtra UDP 7844
+```
+
+`diagnose tunnel` verifica de punta a punta —login, túneles de la cuenta, config local, credenciales, servicio, DNS y una petición real desde internet— y si el servicio está caído **dice la causa** en vez de tirarte el journal: servicio no instalado, config ausente, credenciales que no están donde el config dice, YAML roto, o la red bloqueando la salida.
+
+`tunnel fix` repara lo que se puede reparar sin tocar la cuenta de Cloudflare: recupera las credenciales desde `~/.cloudflared`, corrige el puerto de destino si no coincide con el de Sentinel, reinstala el servicio y verifica desde internet. No crea ni borra túneles, así que es seguro correrlo a ciegas por SSH.
+
+`--http2` fuerza el transporte HTTP/2 en lugar de QUIC. Sirve cuando el firewall del sitio bloquea UDP 7844 — típico en redes corporativas, y se ve en el log como `failed to connect` o `context deadline exceeded`.
+
+Para leer el log crudo:
+
+```bash
+sentinel logs tunnel 60
+```

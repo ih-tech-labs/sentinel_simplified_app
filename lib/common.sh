@@ -181,6 +181,17 @@ env_get() {
   printf '%s' "${val:-$default}"
 }
 
+# env_set <clave> <valor> — reemplaza o agrega, preservando el resto
+env_set() {
+  local key="$1" val="$2"
+  [ -f "$ENV_FILE" ] || { err "No existe $ENV_FILE"; return 1; }
+  if grep -q "^${key}=" "$ENV_FILE" 2>/dev/null; then
+    sed -i "s|^${key}=.*|${key}=${val}|" "$ENV_FILE"
+  else
+    printf '%s=%s\n' "$key" "$val" >> "$ENV_FILE"
+  fi
+}
+
 app_port()  { env_get PORT 3000; }
 app_url()   { echo "http://localhost:$(app_port)"; }
 

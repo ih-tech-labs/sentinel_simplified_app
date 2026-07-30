@@ -16,6 +16,11 @@ SENTINEL_TUNNEL_LOADED=1
 # shellcheck source=common.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
+# Parametrizados para poder probar el diagnóstico y la reparación sin root.
+# En producción quedan en sus valores reales.
+CF_DIR="${SENTINEL_CF_DIR:-/etc/cloudflared}"
+CF_SUDO="${SENTINEL_SUDO-sudo}"
+
 tunnel_install_cloudflared() {
   command -v cloudflared >/dev/null 2>&1 && { ok "cloudflared $(cloudflared --version 2>/dev/null | awk '{print $3}')"; return 0; }
 
@@ -230,6 +235,157 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
+# tunnel_why_down [uuid] — por qué no levanta cloudflared
+#
+#  "cloudflared no está corriendo" no dice nada por sí solo. Las causas reales
+#  son pocas y concretas: falta la unidad de systemd, falta el archivo de
+#  credenciales, el YAML está roto, o la red bloquea UDP 7844. Esto las separa
+#  para no tener que leer el journal desde el otro lado del país.
+# ---------------------------------------------------------------------------
+tunnel_why_down() {
+  local uuid="${1:-}" found=0
+
+  if ! systemctl list-unit-files 2>/dev/null | grep -q '^cloudflared\.service'; then
+    err "CAUSA: el servicio no está instalado"
+    info "Arreglo: sentinel tunnel fix"
+    found=1
+  fi
+
+  if [ ! -f $CF_DIR/config.yml ]; then
+    err "CAUSA: falta $CF_DIR/config.yml"
+    info "Arreglo: sentinel tunnel setup <dominio>"
+    found=1
+  else
+    local cred
+    cred="$($CF_SUDO grep -m1 'credentials-file:' $CF_DIR/config.yml 2>/dev/null | awk '{print $2}')"
+    if [ -n "$cred" ] && ! $CF_SUDO test -f "$cred"; then
+      err "CAUSA: el config apunta a credenciales que no existen"
+      info "        $cred"
+      if [ -n "$uuid" ] && [ -f "$HOME/.cloudflared/$uuid.json" ]; then
+        info "Están en ~/.cloudflared/$uuid.json — sentinel tunnel fix las copia"
+      else
+        info "Arreglo: sentinel tunnel setup <dominio> --recreate"
+      fi
+      found=1
+    fi
+    if command -v python3 >/dev/null 2>&1; then
+      $CF_SUDO cat $CF_DIR/config.yml 2>/dev/null \
+        | python3 -c 'import sys,yaml;yaml.safe_load(sys.stdin)' >/dev/null 2>&1 \
+        || { err "CAUSA: el config.yml no es YAML válido"; found=1; }
+    fi
+  fi
+
+  # Un origen caído da 502 desde internet, no impide que cloudflared levante,
+  # pero es la confusión más común: "el túnel no anda" cuando lo que no anda
+  # es Sentinel.
+  local port; port="$(app_port)"
+  curl -sS -m3 -o /dev/null "http://localhost:$port/healthz" 2>/dev/null \
+    || { warn "Además: Sentinel no responde en el puerto $port"; info "        sentinel restart server"; }
+
+  local jlog
+  jlog="$($CF_SUDO journalctl -u cloudflared -n 60 --no-pager 2>/dev/null || true)"
+  if [ -n "$jlog" ]; then
+    if echo "$jlog" | grep -qi 'failed to connect\|no such host\|i/o timeout\|context deadline'; then
+      err "CAUSA probable: la red bloquea la salida del túnel"
+      info "cloudflared usa UDP 7844 hacia Cloudflare. Si el firewall del sitio"
+      info "lo bloquea, probá modo HTTP/2: sentinel tunnel fix --http2"
+      found=1
+    fi
+    if echo "$jlog" | grep -qi 'tunnel credentials file\|not found\|Cannot determine default'; then
+      err "CAUSA probable: credenciales inválidas o túnel borrado de la cuenta"
+      found=1
+    fi
+  fi
+
+  [ "$found" -eq 0 ] && { warn "Causa no evidente. Últimas líneas del log:"; echo "$jlog" | tail -12 | sed 's/^/      /'; }
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# tunnel_fix [--http2] — reparaciones idempotentes, sin tocar la cuenta
+# ---------------------------------------------------------------------------
+tunnel_fix() {
+  local http2=0
+  [ "${1:-}" = "--http2" ] && http2=1
+
+  banner "REPARAR EL TÚNEL"
+  info "No se crean ni se borran túneles. Sólo se repara este equipo."
+  echo ""
+
+  [ -f $CF_DIR/config.yml ] || {
+    err "No hay config.yml: no hay nada que reparar."
+    info "Configuralo con: sentinel tunnel setup <dominio>"; return 1; }
+
+  local uuid; uuid="$($CF_SUDO grep -m1 '^tunnel:' $CF_DIR/config.yml 2>/dev/null | awk '{print $2}')"
+
+  step "1/4 · Credenciales"
+  local cred; cred="$($CF_SUDO grep -m1 'credentials-file:' $CF_DIR/config.yml 2>/dev/null | awk '{print $2}')"
+  if [ -n "$cred" ] && ! $CF_SUDO test -f "$cred"; then
+    if [ -n "$uuid" ] && [ -f "$HOME/.cloudflared/$uuid.json" ]; then
+      $CF_SUDO cp "$HOME/.cloudflared/$uuid.json" $CF_DIR/ && ok "Credenciales restauradas desde ~/.cloudflared"
+    else
+      err "No hay copia en ~/.cloudflared/$uuid.json"
+      info "Hay que rehacerlo: sentinel tunnel setup <dominio> --recreate"; return 1
+    fi
+  else
+    ok "Presentes"
+  fi
+  $CF_SUDO cp "$HOME/.cloudflared/cert.pem" $CF_DIR/ 2>/dev/null || true
+
+  step "2/4 · Puerto de destino"
+  local port cfg_port; port="$(app_port)"
+  cfg_port="$($CF_SUDO grep -m1 'service: http://localhost:' $CF_DIR/config.yml 2>/dev/null | sed 's/.*localhost://')"
+  if [ -n "$cfg_port" ] && [ "$cfg_port" != "$port" ]; then
+    $CF_SUDO sed -i "s|service: http://localhost:$cfg_port|service: http://localhost:$port|" $CF_DIR/config.yml
+    ok "Corregido: apuntaba al $cfg_port, Sentinel usa el $port"
+  else
+    ok "Coincide ($port)"
+  fi
+
+  step "3/4 · Transporte"
+  if [ "$http2" -eq 1 ]; then
+    $CF_SUDO sed -i '/^protocol:/d' $CF_DIR/config.yml
+    $CF_SUDO sed -i "1i protocol: http2" $CF_DIR/config.yml
+    ok "Forzado HTTP/2 (para redes que bloquean UDP 7844)"
+  else
+    $CF_SUDO grep -q '^protocol:' $CF_DIR/config.yml 2>/dev/null \
+      && info "Forzado a $($CF_SUDO grep -m1 '^protocol:' $CF_DIR/config.yml | awk '{print $2}')" \
+      || ok "QUIC (por defecto)"
+  fi
+
+  step "4/4 · Servicio"
+  $CF_SUDO cloudflared service uninstall >/dev/null 2>&1 || true
+  $CF_SUDO cloudflared service install >/dev/null 2>&1 || warn "service install devolvió error"
+  $CF_SUDO systemctl daemon-reload >/dev/null 2>&1 || true
+  $CF_SUDO systemctl enable cloudflared >/dev/null 2>&1 || true
+  $CF_SUDO systemctl restart cloudflared >/dev/null 2>&1 || true
+  sleep 6
+
+  echo ""
+  if systemctl is-active --quiet cloudflared 2>/dev/null; then
+    ok "cloudflared corriendo"
+    local domain; domain="$($CF_SUDO grep -m1 'hostname:' $CF_DIR/config.yml 2>/dev/null | awk '{print $NF}')"
+    if [ -n "$domain" ]; then
+      echo -n "  Probando desde internet"
+      local i code=000
+      for i in $(seq 1 8); do
+        code="$(http_code "https://$domain/healthz" 6)"
+        [ "$code" = "200" ] && break
+        printf "."; sleep 4
+      done
+      echo ""
+      [ "$code" = "200" ] && echo -e "\n${G}${BOLD}  ✔ Túnel operativo${N}\n" \
+        || { warn "Levantó pero desde internet da HTTP $code"; info "sentinel diagnose tunnel"; }
+    fi
+  else
+    err "Sigue sin levantar"
+    tunnel_why_down "$uuid"
+    [ "$http2" -eq 0 ] && info "Si la red del sitio filtra UDP: sentinel tunnel fix --http2"
+  fi
+  echo ""
+}
+
+# ---------------------------------------------------------------------------
 # tunnel_status
 # ---------------------------------------------------------------------------
 tunnel_status() {
@@ -283,7 +439,7 @@ tunnel_status() {
   else
     err "cloudflared no está corriendo"
     problems=$((problems+1))
-    sudo journalctl -u cloudflared -n 10 --no-pager 2>/dev/null | sed 's/^/      /'
+    tunnel_why_down "$uuid"
   fi
   systemctl is-enabled --quiet cloudflared 2>/dev/null && ok "Habilitado al arranque" \
     || warn "No arranca solo con el sistema"
@@ -339,7 +495,9 @@ tunnel_status() {
     echo -e "\n  ${B}https://$domain/verkada-webhook${N}"
   else
     echo -e "  ${R}${BOLD}$problems problema(s).${N}"
-    echo -e "\n  Para rehacerlo:  ${B}sentinel tunnel clean${N} y después ${B}sentinel tunnel setup <dominio>${N}"
+    echo -e "\n  Primero probá reparar:  ${B}sentinel tunnel fix${N}"
+    echo -e "  Si la red del sitio filtra UDP:  ${B}sentinel tunnel fix --http2${N}"
+    echo -e "  ${D}Último recurso — rehacerlo:  sentinel tunnel clean && sentinel tunnel setup <dominio>${N}"
   fi
   hr
   echo ""

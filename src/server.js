@@ -338,6 +338,31 @@ app.use('/backoffice', auth.requirePage, express.static(path.join(PUBLIC_DIR, 'b
 app.get('/', (req, res) => res.redirect(req.session ? '/backoffice/' : '/login/'));
 app.get('/healthz', (_req, res) => res.json({ ok: true, uptime: Math.round(process.uptime()) }));
 
+/**
+ * Metricas de video para diagnosticar a distancia, sin sesion.
+ *
+ * Va sin autenticar a proposito: sirve para saber por que se ve mal un stream
+ * cuando no hay nadie delante del equipo. Por eso devuelve SOLO numeros —
+ * nada de URLs RTSP, nombres de camara ni datos del sitio.
+ */
+app.get('/healthz/streams', (_req, res) => {
+  res.json({
+    ok: true,
+    streams: streams.info().map((s) => ({
+      id: s.id,
+      status: s.status,
+      viewers: s.viewers,
+      kbps: s.kbps,
+      keyframes: s.keyframes,
+      keyGapAvgMs: s.keyGapAvgMs,
+      resyncs: s.resyncs,
+      droppedBytes: s.droppedBytes,
+      slowClients: s.slowClients,
+      lastDataAgoMs: s.lastDataAgoMs,
+    })),
+  });
+});
+
 app.use((req, res) => res.status(404).send('Not found'));
 
 // Handler de errores (evita que una excepcion tumbe el proceso)

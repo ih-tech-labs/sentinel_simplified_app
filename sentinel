@@ -3,13 +3,14 @@
 #  sentinel · comando único de operación
 #
 #      sentinel status              estado general del sistema
-#      sentinel diagnose [qué]      diagnóstico (all | gpio | tunnel | webhook | video)
-#      sentinel tunnel <acción>     setup <dominio> | status | clean | delete <nombre> | list
+#      sentinel diagnose [qué]      diagnóstico (all | gpio | tunnel | webhook | stream | video)
+#      sentinel tunnel <acción>     setup <dominio> | status | fix | clean | delete | list
 #      sentinel rotate [grados]     rotación de pantalla (0 | 90 | 180 | 270)
 #      sentinel gpio <acción>       monitor | test | send <frame>
 #      sentinel kiosk [id]          abrir el kiosko en esta pantalla
 #      sentinel logs [qué]          logs (server | gpio | tunnel | all)
 #      sentinel restart [qué]       reiniciar (all | server | gpio | tunnel)
+#      sentinel quality [perfil]    calidad del stream (low | medium | high)
 #      sentinel video <archivo>     optimizar el video de fondo
 #      sentinel password [clave]    cambiar la contraseña del backoffice
 #      sentinel report [archivo]    generar reporte del equipo
@@ -85,6 +86,49 @@ cmd_diagnose() {
     gpio|luces)    . "$SENTINEL_HOME/lib/gpio.sh";   gpio_diagnose "$([ "${2:-}" = "--fix" ] && echo 1 || echo 0)" ;;
     tunnel|tunel)  . "$SENTINEL_HOME/lib/tunnel.sh"; tunnel_status ;;
     webhook|verkada) . "$SENTINEL_HOME/lib/webhook.sh"; webhook_diagnose ;;
+    stream|streams)
+      banner "CALIDAD DEL STREAM"
+      info "Medido en el servidor. No hace falta ver la pantalla."
+      local base j; base="$(app_url)"
+      j="$(curl -sS -m5 "$base/healthz/streams" 2>/dev/null)"
+      [ -z "$j" ] && { err "El servidor no responde en $base"; info "sentinel restart server"; return 1; }
+      echo "$j" | python3 -c '
+import sys, json
+d = json.load(sys.stdin)
+ss = d.get("streams", [])
+if not ss:
+    print("    Sin camaras configuradas"); raise SystemExit
+for s in ss:
+    print()
+    print("  \033[1m%s\033[0m  ·  %s  ·  %d espectador(es)" % (s["id"], s["status"], s["viewers"]))
+    if s["status"] != "live":
+        print("    \033[2mArranca cuando alguien mira. Abri el backoffice y repeti.\033[0m")
+        continue
+    kb, gap = s.get("kbps") or 0, s.get("keyGapAvgMs")
+    print("    Caudal real       %s kbps" % kb)
+    print("    I-frames          %s (cada %s)" % (s.get("keyframes"), ("%.1fs" % (gap/1000)) if gap else "n/d"))
+    print("    Resincronizados   %s" % s.get("resyncs"))
+    print("    Descartado        %.1f KB" % ((s.get("droppedBytes") or 0)/1024))
+    print("    Clientes lentos   %s" % s.get("slowClients"))
+    print()
+    slow, res = s.get("slowClients") or 0, s.get("resyncs") or 0
+    if slow or res > 3:
+        print("    \033[31m\u2718 VEREDICTO: el enlace no da abasto\033[0m")
+        print("    \033[2mEl server produce bien; el cliente no llega a consumirlo.")
+        print("    Bajá la calidad:  sentinel quality low\033[0m")
+    elif kb and kb < 120:
+        print("    \033[33m! VEREDICTO: caudal muy bajo — mirá la fuente RTSP\033[0m")
+        print("    \033[2mProbablemente el substream de la camara es muy pobre.\033[0m")
+    elif gap and gap > 5000:
+        print("    \033[33m! VEREDICTO: I-frames muy espaciados (%.1fs)\033[0m" % (gap/1000))
+        print("    \033[2mUn cliente que entra tarda eso en ver imagen limpia.\033[0m")
+    else:
+        print("    \033[32m\u2714 VEREDICTO: el servidor esta emitiendo bien\033[0m")
+        print("    \033[2mSi igual se ve mal, es del lado del que mira.\033[0m")
+print()
+' 2>/dev/null || { err "No pude interpretar la respuesta"; echo "$j" | head -5; }
+      ;;
+
     video)
       local bg="$APP_DIR/public/assets/background.mp4"
       banner "VIDEO DE FONDO"
@@ -116,10 +160,50 @@ cmd_diagnose() {
       info "  sentinel diagnose gpio    · control de luces"
       info "  sentinel diagnose tunnel  · acceso desde internet"
       info "  sentinel diagnose webhook · alarmas de Verkada"
+      info "  sentinel diagnose stream  · calidad del video de las cámaras"
       info "  sentinel diagnose video   · video de fondo del kiosko"
       echo ""
       return $rc ;;
   esac
+}
+
+# ---------------------------------------------------------------------------
+# Perfiles de calidad. MPEG-1 es poco eficiente: si el enlace no da, lo que
+# arregla el video no es mas bitrate sino menos pixeles.
+cmd_quality() {
+  local profile="${1:-}"
+  if [ -z "$profile" ]; then
+    banner "CALIDAD DEL STREAM"
+    echo -e "  Actual:  ${BOLD}$(env_get STREAM_WIDTH 640)x$(env_get STREAM_HEIGHT 360)${N} · $(env_get STREAM_FPS 12) fps · $(env_get STREAM_BITRATE 450k)"
+    echo ""
+    echo -e "  ${B}low${N}     480x270 ·  8 fps · 250k   ${D}enlaces malos o 3G${N}"
+    echo -e "  ${B}medium${N}  640x360 · 12 fps · 700k   ${D}por defecto${N}"
+    echo -e "  ${B}high${N}    960x540 · 15 fps · 1500k  ${D}red buena${N}"
+    echo ""
+    info "Aplicar:  sentinel quality medium"
+    echo ""
+    return 0
+  fi
+
+  local w h f b
+  case "$profile" in
+    low|baja)     w=480; h=270; f=8;  b=250k ;;
+    medium|media) w=640; h=360; f=12; b=700k ;;
+    high|alta)    w=960; h=540; f=15; b=1500k ;;
+    *) err "Perfil desconocido: $profile"; info "Usá: low | medium | high"; return 1 ;;
+  esac
+
+  env_set STREAM_WIDTH   "$w" || return 1
+  env_set STREAM_HEIGHT  "$h"
+  env_set STREAM_FPS     "$f"
+  env_set STREAM_BITRATE "$b"
+  ok "Perfil '$profile': ${w}x${h} · ${f} fps · ${b}"
+  echo ""
+  info "Reiniciando el servidor para aplicarlo..."
+  cmd_restart server
+  echo ""
+  info "Recargá el backoffice (Ctrl+Shift+R) y verificá con: sentinel diagnose stream"
+  echo ""
 }
 
 # ---------------------------------------------------------------------------
@@ -129,6 +213,7 @@ cmd_tunnel() {
   case "$action" in
     setup|crear)   tunnel_setup "$@" ;;
     status|estado) tunnel_status ;;
+    fix|reparar)   tunnel_fix "$@" ;;
     clean|limpiar) tunnel_clean ;;
     delete|borrar) tunnel_delete "${1:-}" ;;
     list|listar)
@@ -142,7 +227,7 @@ cmd_tunnel() {
       fi
       echo "" ;;
     *) err "Acción desconocida: $action"
-       info "setup <dominio> | status | clean | delete <nombre> | list"; return 1 ;;
+       info "setup <dominio> | status | fix [--http2] | clean | delete <nombre> | list"; return 1 ;;
   esac
 }
 
@@ -383,6 +468,7 @@ cmd_version() {
 require_app_dir
 CMD="${1:-}"; shift || true
 case "$CMD" in
+  quality|calidad)     cmd_quality "$@" ;;
   status|estado)       cmd_status "$@" ;;
   diagnose|diag)       cmd_diagnose "$@" ;;
   tunnel|tunel)        cmd_tunnel "$@" ;;

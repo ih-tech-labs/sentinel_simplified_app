@@ -29,6 +29,12 @@ const auth = require('./auth');
 const NO_DATA_TIMEOUT_MS = 15000;
 const BACKOFF_MIN_MS = 2000;
 const BACKOFF_MAX_MS = 30000;
+const BACKPRESSURE_BYTES = 1024 * 512;
+
+/** Sequence header de MPEG-1: marca el comienzo de cada GOP. */
+const SEQ_HEADER = Buffer.from([0x00, 0x00, 0x01, 0xb3]);
+const TS_PACKET = 188;
+const TS_SYNC = 0x47;
 
 /**
  * MPEG-1 solo admite oficialmente estas tasas de cuadros. Con cualquier otra,
@@ -54,6 +60,64 @@ class CameraStream extends EventEmitter {
     this.watchdog = null;
     this.restartTimer = null;
     this.stderrTail = [];
+
+    // Instrumentacion: sin estas metricas, "se ve mal" es indistinguible de
+    // "la red del que mira esta saturada". Ahora se puede saber desde el server.
+    this.keyframes = 0;
+    this.lastKeyframeAt = 0;
+    this.keyGapMs = [];          // huecos entre I-frames, para ver la cadencia real
+    this.resyncs = 0;            // veces que un cliente quedo atras y hubo que resincronizar
+    this.droppedBytes = 0;
+    this.startedAt = 0;
+    this.tailBytes = Buffer.alloc(0);  // cola para el start code partido entre chunks
+    this.lastKeyChunk = null;    // ultimo chunk que empieza un GOP, para clientes nuevos
+  }
+
+  /**
+   * Devuelve el offset del comienzo de un GOP dentro del chunk, o -1.
+   *
+   * En MPEG-1 cada GOP arranca con un sequence header (00 00 01 B3). Cortar el
+   * stream en cualquier otro lado deja al decoder aplicando P-frames sobre una
+   * referencia que nunca recibio: eso es la papilla gris con manchas.
+   *
+   * El start code puede quedar partido entre dos chunks, asi que se busca sobre
+   * los ultimos 3 bytes del chunk anterior mas el actual.
+   */
+  findGopStart(chunk) {
+    const prevLen = this.tailBytes.length;
+    const hay = prevLen ? Buffer.concat([this.tailBytes, chunk]) : chunk;
+    const idx = hay.indexOf(SEQ_HEADER);
+
+    // Acumular hasta 3 bytes (no reemplazar): con chunks chicos el start code
+    // puede quedar repartido en mas de dos pedazos.
+    const keep = Buffer.concat([this.tailBytes, chunk]);
+    this.tailBytes = Buffer.from(keep.subarray(Math.max(0, keep.length - 3)));
+
+    if (idx < 0) return -1;
+
+    // El start code cae DENTRO de un paquete TS. Cortar ahi entrega al cliente
+    // un paquete partido y el demuxer pierde sincronismo: hay que retroceder
+    // hasta el comienzo del paquete de 188 bytes que lo contiene.
+    const tsStart = this.alignToTsPacket(hay, idx);
+    if (tsStart < 0) return -1;
+
+    const off = tsStart - prevLen;
+    return off >= 0 ? off : -1;   // el paquete arranca en la cola ya enviada
+  }
+
+  /**
+   * Retrocede desde `from` hasta el inicio del paquete MPEG-TS que lo contiene.
+   *
+   * Un paquete arranca con 0x47 y mide 188 bytes. Para no confundir un 0x47 que
+   * sea dato, se valida que haya otro 0x47 exactamente 188 bytes mas adelante.
+   */
+  alignToTsPacket(buf, from) {
+    for (let i = from; i >= 0 && from - i < TS_PACKET * 2; i--) {
+      if (buf[i] !== TS_SYNC) continue;
+      const next = i + TS_PACKET;
+      if (next >= buf.length || buf[next] === TS_SYNC) return i;
+    }
+    return -1;
   }
 
   // -------------------------------------------------------------------------
@@ -109,6 +173,12 @@ class CameraStream extends EventEmitter {
 
     this.proc = proc;
     this.lastDataAt = Date.now();
+    this.startedAt = Date.now();
+    this.keyframes = 0;
+    this.lastKeyframeAt = 0;
+    this.keyGapMs = [];
+    this.tailBytes = Buffer.alloc(0);
+    this.lastKeyChunk = null;
 
     proc.stdout.on('data', (chunk) => {
       this.lastDataAt = Date.now();
@@ -224,7 +294,14 @@ class CameraStream extends EventEmitter {
   // -------------------------------------------------------------------------
 
   addClient(ws) {
+    ws.desynced = false;
+    ws.dropped = 0;
     this.clients.add(ws);
+    // Arrancar desde el ultimo I-frame en vez de esperar el proximo: el video
+    // aparece al instante y ademas empieza sincronizado.
+    if (this.lastKeyChunk && ws.readyState === ws.OPEN) {
+      try { ws.send(this.lastKeyChunk, { binary: true }); } catch (_) { /* ignore */ }
+    }
     if (this.idleTimer) {
       clearTimeout(this.idleTimer);
       this.idleTimer = null;
@@ -247,12 +324,53 @@ class CameraStream extends EventEmitter {
     this.idleTimer.unref();
   }
 
+  /**
+   * Reparte el chunk a los espectadores.
+   *
+   * ANTES: si el cliente estaba atrasado se descartaba el chunk y punto. El
+   * problema es que MPEG-TS no es reanudable en cualquier byte: al volver, el
+   * decoder aplica P-frames sobre una referencia incompleta y arrastra el error
+   * hasta que llega un I-frame ENTERO. Con la red apenas justa eso no pasa
+   * nunca y el video queda en la papilla gris permanente.
+   *
+   * AHORA: cuando un cliente se atrasa se lo marca desincronizado y no recibe
+   * nada hasta el comienzo del proximo GOP, desde donde el decoder arranca
+   * limpio. Se pierde hasta un par de segundos de video, pero vuelve nitido.
+   */
   broadcast(chunk) {
+    const gopAt = this.findGopStart(chunk);
+
+    if (gopAt >= 0) {
+      const now = Date.now();
+      if (this.lastKeyframeAt) {
+        this.keyGapMs.push(now - this.lastKeyframeAt);
+        if (this.keyGapMs.length > 30) this.keyGapMs.shift();
+      }
+      this.lastKeyframeAt = now;
+      this.keyframes++;
+      // Guardado para que un cliente nuevo arranque ya, sin esperar el proximo
+      this.lastKeyChunk = gopAt === 0 ? chunk : Buffer.from(chunk.subarray(gopAt));
+    }
+
     for (const ws of this.clients) {
       if (ws.readyState !== ws.OPEN) continue;
-      // Backpressure: si el cliente esta atrasado, descartamos el frame en vez
-      // de acumular buffer en el servidor (mejor perder video que morir de RAM).
-      if (ws.bufferedAmount > 1024 * 512) continue;
+
+      if (ws.desynced) {
+        if (gopAt < 0) continue;                    // seguimos esperando un GOP
+        if (ws.bufferedAmount > BACKPRESSURE_BYTES) continue;  // todavia saturado
+        ws.desynced = false;
+        this.resyncs++;
+        ws.send(gopAt === 0 ? chunk : chunk.subarray(gopAt), { binary: true });
+        continue;
+      }
+
+      if (ws.bufferedAmount > BACKPRESSURE_BYTES) {
+        ws.desynced = true;
+        ws.dropped = (ws.dropped || 0) + 1;
+        this.droppedBytes += chunk.length;
+        continue;
+      }
+
       ws.send(chunk, { binary: true });
     }
   }
@@ -267,6 +385,17 @@ class CameraStream extends EventEmitter {
       bytesOut: this.bytesOut,
       lastDataAgoMs: this.lastDataAt ? Date.now() - this.lastDataAt : null,
       lastError: this.stderrTail[this.stderrTail.length - 1] || null,
+      // Metricas para diagnosticar "se ve mal" sin estar delante de la pantalla
+      kbps: this.startedAt && Date.now() > this.startedAt
+        ? Math.round((this.bytesOut * 8) / ((Date.now() - this.startedAt) / 1000) / 1000)
+        : 0,
+      keyframes: this.keyframes,
+      keyGapAvgMs: this.keyGapMs.length
+        ? Math.round(this.keyGapMs.reduce((a, b) => a + b, 0) / this.keyGapMs.length)
+        : null,
+      resyncs: this.resyncs,
+      droppedBytes: this.droppedBytes,
+      slowClients: Array.from(this.clients).filter((c) => c.desynced).length,
     };
   }
 }
