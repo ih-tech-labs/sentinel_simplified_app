@@ -2,6 +2,8 @@
 # =============================================================================
 #  sentinel · comando único de operación
 #
+#      sentinel recover             revisar y levantar lo que esté caído
+#      sentinel watchdog <acción>   monitor automático (on | off | status | log)
 #      sentinel status              estado general del sistema
 #      sentinel diagnose [qué]      diagnóstico (all | gpio | tunnel | webhook | stream | video)
 #      sentinel tunnel <acción>     setup <dominio> | status | fix | clean | delete | list
@@ -407,6 +409,21 @@ cmd_quality() {
 }
 
 # ---------------------------------------------------------------------------
+cmd_watchdog() {
+  . "$SENTINEL_HOME/lib/watchdog.sh"
+  local action="${1:-status}"; shift || true
+  case "$action" in
+    on|activar|install)  wd_install "${1:-5}" ;;
+    off|desactivar|uninstall) wd_uninstall ;;
+    status|estado)       wd_status ;;
+    run|correr)          wd_run ;;
+    log|registro)        [ -s "$WD_LOG" ] && tail -"${1:-40}" "$WD_LOG" || info "El monitor todavía no tuvo que intervenir." ;;
+    *) err "Acción desconocida: $action"
+       info "on [minutos] | off | status | log [líneas]"; return 1 ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
 cmd_tunnel() {
   . "$SENTINEL_HOME/lib/tunnel.sh"
   local action="${1:-status}"; shift || true
@@ -671,6 +688,8 @@ case "$CMD" in
   try|probar)          cmd_try "$@" ;;
   camera-url)          cmd_camera_url "$@" ;;
   quality|calidad)     cmd_quality "$@" ;;
+  recover|recuperar)   . "$SENTINEL_HOME/lib/watchdog.sh"; wd_recover "$@" ;;
+  watchdog|monitor)    cmd_watchdog "$@" ;;
   status|estado)       cmd_status "$@" ;;
   diagnose|diag)       cmd_diagnose "$@" ;;
   tunnel|tunel)        cmd_tunnel "$@" ;;
