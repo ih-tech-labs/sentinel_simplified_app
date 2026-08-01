@@ -9,6 +9,17 @@
 #
 #  REGLA: reiniciar sólo lo que está roto. Un "restart all" a ciegas corta el
 #  video de quien esté mirando y borra la evidencia de qué había fallado.
+#
+#  EL ARDUINO QUEDA AFUERA A PROPOSITO.
+#
+#  El demonio de GPIO abre el puerto serie sólo cuando hay que mandar un
+#  comando y lo suelta despues, asi que verlo detenido es lo NORMAL, no una
+#  falla. Ademas, abrir el puerto serie resetea el Arduino por DTR: un monitor
+#  reiniciandolo cada pocos minutos le estaria dando reset todo el dia, y
+#  podria cortar una secuencia de luces en curso.
+#
+#  Para revisarlo cuando haga falta:  sentinel diagnose gpio
+#  Para incluirlo igual:              WATCHDOG_CHECK_GPIO=1 en el .env
 # =============================================================================
 [ -n "${SENTINEL_WATCHDOG_LOADED:-}" ] && return 0
 SENTINEL_WATCHDOG_LOADED=1
@@ -166,8 +177,12 @@ wd_recover() {
   case "${1:-}" in --auto|--yes|-y) auto=1 ;; esac
 
   banner "RECUPERAR SENTINEL"
-  local checks=(wd_check_server wd_check_gpio wd_check_tunnel wd_check_stream wd_check_camera)
-  local fixes=(wd_fix_server wd_fix_gpio wd_fix_tunnel wd_fix_server wd_fix_nada)
+  local checks=(wd_check_server wd_check_tunnel wd_check_stream wd_check_camera)
+  local fixes=(wd_fix_server wd_fix_tunnel wd_fix_server wd_fix_nada)
+  # El Arduino queda afuera salvo que se pida expresamente (ver nota arriba)
+  if [ "${WATCHDOG_CHECK_GPIO:-0}" = "1" ]; then
+    checks+=(wd_check_gpio); fixes+=(wd_fix_gpio)
+  fi
   local roto=() roto_fix=() i res nombre estado detalle
 
   step "Revisando"
@@ -243,8 +258,11 @@ wd_recover() {
 # wd_run — pensado para el timer: silencioso salvo que haya algo que decir
 # ---------------------------------------------------------------------------
 wd_run() {
-  local checks=(wd_check_server wd_check_gpio wd_check_tunnel wd_check_stream wd_check_camera)
-  local fixes=(wd_fix_server wd_fix_gpio wd_fix_tunnel wd_fix_server wd_fix_nada)
+  local checks=(wd_check_server wd_check_tunnel wd_check_stream wd_check_camera)
+  local fixes=(wd_fix_server wd_fix_tunnel wd_fix_server wd_fix_nada)
+  if [ "${WATCHDOG_CHECK_GPIO:-0}" = "1" ]; then
+    checks+=(wd_check_gpio); fixes+=(wd_fix_gpio)
+  fi
   local i res nombre estado detalle roto=() aplicados=""
 
   for i in "${!checks[@]}"; do
@@ -286,6 +304,14 @@ wd_install() {
   banner "MONITOR AUTOMÁTICO"
   echo -e "  Revisa cada ${BOLD}${mins} minuto(s)${N} y reinicia sólo lo que esté caído."
   echo -e "  Registro: ${BOLD}$WD_LOG${N}"
+  echo ""
+  echo -e "  Vigila:      servidor · túnel · video · cámara"
+  if [ "${WATCHDOG_CHECK_GPIO:-0}" = "1" ]; then
+    echo -e "               arduino ${D}(activado con WATCHDOG_CHECK_GPIO=1)${N}"
+  else
+    echo -e "  ${D}No vigila:   arduino — se conecta sólo cuando lo usa, y abrir el"
+    echo -e "               puerto serie lo resetea. Revisalo con: sentinel diagnose gpio${N}"
+  fi
   echo ""
 
   $WD_SUDO tee "$WD_SERVICE" >/dev/null <<EOF
