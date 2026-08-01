@@ -91,12 +91,50 @@ for s in d.get("streams", []):
         malos.append("%s en estado %s" % (s.get("id"), st))
     elif v > 0 and st != "live":
         malos.append("%s: hay %d mirando y no arranca" % (s.get("id"), v))
-print(("fallo|" + "; ".join(malos)) if malos else "ok|sin problemas")
+if malos:
+    print("fallo|" + "; ".join(malos))
+else:
+    mirando = sum((s.get("viewers") or 0) for s in d.get("streams", []))
+    print("ok|sin problemas" if mirando else "ok|nadie mirando ahora (normal: arranca on-demand)")
 ' 2>/dev/null)"
   [ -z "$out" ] && { echo "video|ok|sin datos"; return 0; }
   echo "video|${out}"
   [ "${out%%|*}" = "fallo" ] && return 1
   return 0
+}
+
+# ---------------------------------------------------------------------------
+# wd_check_camera — prueba ACTIVA de la fuente
+#
+#  wd_check_stream es pasivo: mira lo que el servidor esta viendo AHORA. Como
+#  el stream es on-demand, si nadie esta mirando queda 'idle' y eso es correcto.
+#  El efecto es que un video roto se reporta como sano en cuanto cerras la
+#  pestania: exactamente lo que paso cuando el video quedaba cargando y el
+#  diagnostico solo acusaba el Arduino.
+#
+#  Esto se conecta a la camara y confirma que entrega imagen, mire alguien o no.
+# ---------------------------------------------------------------------------
+wd_check_camera() {
+  command -v ffprobe >/dev/null 2>&1 || { echo "cámara|ok|sin ffprobe, se saltea"; return 0; }
+  local url
+  url="$(cd "$APP_DIR" 2>/dev/null && node -e '
+    try {
+      const c = require("./src/cameras");
+      const cam = (c.CAMERA_LIST || []).find((x) => x.rtspUrl);
+      process.stdout.write(cam ? cam.rtspUrl : "");
+    } catch (e) { process.stdout.write(""); }
+  ' 2>/dev/null)"
+  [ -z "$url" ] && { echo "cámara|ok|ninguna configurada"; return 0; }
+
+  # -rw_timeout esta en microsegundos: 8s de tope para no colgar el watchdog
+  if ffprobe -v error -rtsp_transport tcp -rw_timeout 8000000 \
+       -select_streams v:0 -show_entries stream=codec_name \
+       -of csv=p=0 "$url" >/dev/null 2>&1; then
+    echo "cámara|ok|entrega imagen"
+    return 0
+  fi
+  echo "cámara|fallo|no responde (reiniciar Sentinel no lo arregla)"
+  return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -114,6 +152,8 @@ wd_fix_server() {
 }
 
 wd_fix_gpio()   { pm2 restart sentinel-gpio >/dev/null 2>&1 && sleep 2; }
+# Para lo que no se arregla reiniciando: se informa y se sigue.
+wd_fix_nada()   { return 1; }
 wd_fix_tunnel() { $WD_SUDO systemctl restart cloudflared >/dev/null 2>&1 && sleep 6; }
 # El video depende del servidor: se repara con la MISMA funcion, asi la
 # deduplicacion la reconoce y no lo reinicia dos veces en la misma pasada.
@@ -126,8 +166,8 @@ wd_recover() {
   case "${1:-}" in --auto|--yes|-y) auto=1 ;; esac
 
   banner "RECUPERAR SENTINEL"
-  local checks=(wd_check_server wd_check_gpio wd_check_tunnel wd_check_stream)
-  local fixes=(wd_fix_server wd_fix_gpio wd_fix_tunnel wd_fix_server)
+  local checks=(wd_check_server wd_check_gpio wd_check_tunnel wd_check_stream wd_check_camera)
+  local fixes=(wd_fix_server wd_fix_gpio wd_fix_tunnel wd_fix_server wd_fix_nada)
   local roto=() roto_fix=() i res nombre estado detalle
 
   step "Revisando"
@@ -151,7 +191,7 @@ wd_recover() {
   fi
 
   echo ""
-  warn "Hay que reiniciar: ${roto[*]}"
+  warn "Con problemas: ${roto[*]}"
   if [ "$auto" -eq 0 ]; then
     echo ""
     printf "  ¿Reinicio? [S/n]: "
@@ -167,6 +207,10 @@ wd_recover() {
     # Si ya reiniciamos el servidor, no repetirlo por el video
     case " $aplicados " in *" ${roto_fix[$i]} "*) continue ;; esac
     aplicados="$aplicados ${roto_fix[$i]}"
+    if [ "${roto_fix[$i]}" = "wd_fix_nada" ]; then
+      warn "${roto[$i]}: no se arregla reiniciando, hay que revisarlo a mano"
+      continue
+    fi
     info "${roto[$i]}..."
     if ${roto_fix[$i]}; then ok "${roto[$i]} reiniciado"; else err "${roto[$i]} no levantó"; fi
   done
@@ -199,8 +243,8 @@ wd_recover() {
 # wd_run — pensado para el timer: silencioso salvo que haya algo que decir
 # ---------------------------------------------------------------------------
 wd_run() {
-  local checks=(wd_check_server wd_check_gpio wd_check_tunnel wd_check_stream)
-  local fixes=(wd_fix_server wd_fix_gpio wd_fix_tunnel wd_fix_server)
+  local checks=(wd_check_server wd_check_gpio wd_check_tunnel wd_check_stream wd_check_camera)
+  local fixes=(wd_fix_server wd_fix_gpio wd_fix_tunnel wd_fix_server wd_fix_nada)
   local i res nombre estado detalle roto=() aplicados=""
 
   for i in "${!checks[@]}"; do
@@ -210,6 +254,10 @@ wd_run() {
     [ "$estado" = "ok" ] && continue
     roto+=("$nombre")
     wd_log "CAIDO  $nombre: $detalle"
+    if [ "${fixes[$i]}" = "wd_fix_nada" ]; then
+      wd_log "REVISAR  $nombre no se arregla reiniciando"
+      continue
+    fi
     case " $aplicados " in *" ${fixes[$i]} "*) continue ;; esac
     aplicados="$aplicados ${fixes[$i]}"
     if ${fixes[$i]}; then wd_log "REINICIADO  $nombre"; else wd_log "FALLO al reiniciar $nombre"; fi
