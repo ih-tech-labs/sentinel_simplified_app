@@ -390,7 +390,7 @@ async function handlePoiGreeting(cam, name, data) {
 
   // LEDs: preset temporal que vuelve solo al estado anterior.
   if (config.GPIO_ENABLED && config.POI_LED_PRESET) {
-    devices.sendTemporaryPreset(config.POI_LED_PRESET, config.POI_LED_SECONDS).then((r) => {
+    devices.sendTemporaryPreset(config.POI_LED_PRESET, config.POI_LED_SECONDS, config.POI_LED_MODE).then((r) => {
       if (!r.ok) console.warn('[POI] LEDs:', r.error);
     });
   }

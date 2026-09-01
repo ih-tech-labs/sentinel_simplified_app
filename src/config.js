@@ -95,6 +95,8 @@ const config = {
   POI_ENABLED: bool('POI_ENABLED', true),
   POI_POPUP_SECONDS: int('POI_POPUP_SECONDS', 10),
   POI_LED_PRESET: process.env.POI_LED_PRESET || 'green',
+  // 'breathe' = el color respira (se atenua y enciende suave); 'solid' = fijo
+  POI_LED_MODE: /^solid$/i.test(process.env.POI_LED_MODE || '') ? 'solid' : 'breathe',
   POI_LED_SECONDS: int('POI_LED_SECONDS', 10),
   POI_GREETING_TEXT: process.env.POI_GREETING_TEXT || '\u00a1Bienvenido/a, {name}!',
 
