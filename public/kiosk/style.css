@@ -417,7 +417,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 6vw;
-  background: rgba(0, 0, 0, .55);
+  background: rgba(0, 0, 0, .35);
   opacity: 0;
   pointer-events: none;
   transition: opacity .45s ease;
@@ -433,10 +433,12 @@ body {
   align-items: center;
   gap: 4vh;
   padding: clamp(28px, 5vh, 64px) clamp(28px, 6vw, 72px);
-  background: var(--panel);
-  border: 1px solid var(--panel-line);
+  /* Vidrio opaco SIN backdrop-filter: gradiente casi sólido + brillo superior.
+     Se ve como vidrio ahumado y le cuesta cero al compositor (regla de oro). */
+  background: linear-gradient(165deg, rgba(34, 41, 54, .93) 0%, rgba(16, 20, 28, .95) 100%);
+  border: 1px solid rgba(255, 255, 255, .17);
   border-radius: 34px;
-  box-shadow: 0 26px 70px rgba(0, 0, 0, .55);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .09);
   transform: translateY(24px) scale(.96);
   transition: transform .45s cubic-bezier(.2, .9, .3, 1.2);
   max-width: 86vw;

@@ -179,10 +179,9 @@ async function sendFrame(frame) {
  * @param {'solid'|'breathe'} mode  'breathe' hace respirar el color mientras
  *   dura la ventana (requiere el daemon; sin daemon cae a color fijo).
  */
-async function sendTemporaryPreset(name, seconds, mode = 'solid') {
-  const preset = PRESETS[name];
-  if (!preset) {
-    return { ok: false, error: `Preset desconocido '${name}'. Validos: ${Object.keys(PRESETS).join(', ')}` };
+async function sendTemporaryFrame(frame, seconds, mode = 'solid', label = 'personalizado') {
+  if (!FRAME_RE.test(frame)) {
+    return { ok: false, via: 'none', error: 'Frame invalido. Formato: R,G,B,W,WW,EFFECT,ARG1,ARG2' };
   }
   const holdS = Math.max(1, Number(seconds) || 10);
   const baselineFrame = tempState
@@ -192,16 +191,16 @@ async function sendTemporaryPreset(name, seconds, mode = 'solid') {
 
   if (tempState && tempState.anim) clearInterval(tempState.anim);
 
-  const result = await rawSend(preset.frame);
+  const result = await rawSend(frame);
   if (!result.ok) {
     tempState = null;
-    return { ...result, preset: name, label: preset.label };
+    return { ...result, label };
   }
 
   // Respiracion solo si el frame inicial salio por el daemon: es la prueba
   // de que hay daemon vivo para sostener la animacion.
   const anim = (mode === 'breathe' && result.via === 'daemon')
-    ? startBreathing(preset.frame)
+    ? startBreathing(frame)
     : null;
 
   const timer = setTimeout(() => {
@@ -213,8 +212,18 @@ async function sendTemporaryPreset(name, seconds, mode = 'solid') {
   }, holdS * 1000);
   if (timer.unref) timer.unref();
 
-  tempState = { baselineFrame, timer, anim, preset: name };
-  return { ...result, preset: name, label: preset.label, mode: anim ? 'breathe' : 'solid', restoresInS: holdS };
+  tempState = { baselineFrame, timer, anim, preset: label };
+  return { ...result, label, mode: anim ? 'breathe' : 'solid', restoresInS: holdS };
+}
+
+/** Igual que sendTemporaryFrame pero por nombre de preset. */
+async function sendTemporaryPreset(name, seconds, mode = 'solid') {
+  const preset = PRESETS[name];
+  if (!preset) {
+    return { ok: false, error: `Preset desconocido '${name}'. Validos: ${Object.keys(PRESETS).join(', ')}` };
+  }
+  const result = await sendTemporaryFrame(preset.frame, seconds, mode, preset.label);
+  return { ...result, preset: name };
 }
 
 /** Manda un preset por nombre. */
@@ -241,4 +250,4 @@ function status() {
   };
 }
 
-module.exports = { sendFrame, sendPreset, sendTemporaryPreset, presetList, status, PRESETS };
+module.exports = { sendFrame, sendPreset, sendTemporaryPreset, sendTemporaryFrame, presetList, status, PRESETS };

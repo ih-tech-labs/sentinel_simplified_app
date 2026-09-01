@@ -94,6 +94,7 @@ const config = {
   // --- Saludo a Personas de Interes (POI de Verkada) ---
   POI_ENABLED: bool('POI_ENABLED', true),
   POI_POPUP_SECONDS: int('POI_POPUP_SECONDS', 10),
+  // Nombre de preset (green, blue, ...) o un color HEX directo (#00c853)
   POI_LED_PRESET: process.env.POI_LED_PRESET || 'green',
   // 'breathe' = el color respira (se atenua y enciende suave); 'solid' = fijo
   POI_LED_MODE: /^solid$/i.test(process.env.POI_LED_MODE || '') ? 'solid' : 'breathe',

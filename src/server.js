@@ -390,10 +390,28 @@ async function handlePoiGreeting(cam, name, data) {
 
   // LEDs: preset temporal que vuelve solo al estado anterior.
   if (config.GPIO_ENABLED && config.POI_LED_PRESET) {
-    devices.sendTemporaryPreset(config.POI_LED_PRESET, config.POI_LED_SECONDS, config.POI_LED_MODE).then((r) => {
+    const hex = hexToLedFrame(config.POI_LED_PRESET);
+    const led = hex
+      ? devices.sendTemporaryFrame(hex.frame, config.POI_LED_SECONDS, config.POI_LED_MODE, hex.label)
+      : devices.sendTemporaryPreset(config.POI_LED_PRESET, config.POI_LED_SECONDS, config.POI_LED_MODE);
+    led.then((r) => {
       if (!r.ok) console.warn('[POI] LEDs:', r.error);
     });
   }
+}
+
+/**
+ * POI_LED_PRESET acepta un nombre de preset (green, blue, ...) o un color
+ * HEX (#00c853). El HEX se traduce a un frame RGB con blanco/calido en cero.
+ */
+function hexToLedFrame(value) {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(String(value).trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return {
+    frame: `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},0,0,0,0,0`,
+    label: '#' + m[1].toLowerCase(),
+  };
 }
 
 // ---------------------------------------------------------------------------
