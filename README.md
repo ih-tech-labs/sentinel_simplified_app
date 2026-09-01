@@ -61,6 +61,7 @@ sentinel/
 │
 ├── public/             kiosko, backoffice y login
 ├── scripts/            daemon serie del Arduino
+├── firmware/           sketch del Arduino + flash.sh para grabarlo desde la Pi
 │
 ├── config/cameras.json ← LAS URLs RTSP VAN ACÁ
 └── .env                contraseña, puerto, tuning
