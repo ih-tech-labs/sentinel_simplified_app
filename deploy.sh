@@ -158,6 +158,12 @@ fi
 [ -f "$CAMERAS_JSON" ] && ok "cameras.json existente: se conserva" \
                        || info "Sin cameras.json: se usan las cámaras por defecto del código"
 
+# Apariencia del kiosko: como cameras.json, es config del sitio y se hereda
+if [ ! -f "$CONFIG_DIR/appearance.json" ] && [ -n "$OLD_DIR" ] && [ -f "$OLD_DIR/config/appearance.json" ]; then
+  cp "$OLD_DIR/config/appearance.json" "$CONFIG_DIR/appearance.json" \
+    && ok "Apariencia del kiosko heredada"
+fi
+
 # --- 5. Dependencias -------------------------------------------------------
 step "4/7 · Dependencias"
 cd "$APP_DIR"

@@ -79,10 +79,11 @@ function sendViaCli(frame, timeoutMs = 8000) {
 }
 
 /**
- * Manda un frame crudo al Arduino.
+ * Manda un frame crudo al Arduino (nucleo comun, sin tocar el estado del
+ * preset temporal).
  * @returns {Promise<{ok:boolean, via:string, response?:string, error?:string}>}
  */
-async function sendFrame(frame) {
+async function rawSend(frame) {
   if (!config.GPIO_ENABLED) {
     return { ok: false, via: 'none', error: 'Control de dispositivos deshabilitado (GPIO_ENABLED=false)' };
   }
@@ -111,6 +112,64 @@ async function sendFrame(frame) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Preset temporal (saludo POI): se enciende N segundos y despues se restaura
+// solo el estado anterior.
+// ---------------------------------------------------------------------------
+
+let tempState = null; // { baselineFrame, timer, preset }
+
+function cancelTemporary() {
+  if (!tempState) return;
+  clearTimeout(tempState.timer);
+  tempState = null;
+}
+
+/**
+ * Manda un frame al Arduino (comando manual del operador o de la API).
+ * Un comando manual siempre gana: si habia un preset temporal esperando
+ * restaurarse, se cancela para no pisar lo que el operador acaba de elegir.
+ */
+async function sendFrame(frame) {
+  cancelTemporary();
+  return rawSend(frame);
+}
+
+/**
+ * Manda un preset y lo deja `seconds` segundos; despues restaura solo el
+ * estado anterior (el ultimo frame enviado, o todo apagado si no habia
+ * ninguno). Si llegan dos saludos seguidos, el segundo extiende la ventana
+ * pero el estado a restaurar sigue siendo el ORIGINAL, no el del saludo.
+ */
+async function sendTemporaryPreset(name, seconds) {
+  const preset = PRESETS[name];
+  if (!preset) {
+    return { ok: false, error: `Preset desconocido '${name}'. Validos: ${Object.keys(PRESETS).join(', ')}` };
+  }
+  const holdS = Math.max(1, Number(seconds) || 10);
+  const baselineFrame = tempState
+    ? tempState.baselineFrame
+    : (lastCommand ? lastCommand.frame : PRESETS.off.frame);
+  if (tempState) clearTimeout(tempState.timer);
+
+  const result = await rawSend(preset.frame);
+  if (!result.ok) {
+    tempState = null;
+    return { ...result, preset: name, label: preset.label };
+  }
+
+  const timer = setTimeout(() => {
+    tempState = null;
+    rawSend(baselineFrame).then((r) => {
+      if (!r.ok) console.warn('[GPIO] No se pudo restaurar el estado previo:', r.error);
+    });
+  }, holdS * 1000);
+  if (timer.unref) timer.unref();
+
+  tempState = { baselineFrame, timer, preset: name };
+  return { ...result, preset: name, label: preset.label, restoresInS: holdS };
+}
+
 /** Manda un preset por nombre. */
 async function sendPreset(name) {
   const preset = PRESETS[name];
@@ -131,7 +190,8 @@ function status() {
     enabled: config.GPIO_ENABLED,
     daemon: { host: config.GPIO_HOST, port: config.GPIO_PORT, healthy: daemonHealthy },
     lastCommand,
+    temporary: tempState ? { preset: tempState.preset } : null,
   };
 }
 
-module.exports = { sendFrame, sendPreset, presetList, status, PRESETS };
+module.exports = { sendFrame, sendPreset, sendTemporaryPreset, presetList, status, PRESETS };

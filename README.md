@@ -55,7 +55,9 @@ sentinel/
 │   ├── sockets.js        presencia, alarmas, signaling WebRTC
 │   ├── events.js         historial persistente
 │   ├── system.js         telemetría de la Pi
-│   └── devices.js        puente al Arduino
+│   ├── devices.js        puente al Arduino
+│   ├── poi.js            fotos del saludo a Personas de Interés
+│   └── appearance.js     apariencia del kiosko (editable desde el backoffice)
 │
 ├── public/             kiosko, backoffice y login
 ├── scripts/            daemon serie del Arduino
@@ -91,6 +93,14 @@ Simple a propósito: sin OAuth, sin base de datos de usuarios, sin dependencias 
 Contraseña como hash **scrypt** con salt aleatorio. Sesión en cookie `HttpOnly` firmada con HMAC-SHA256, con el secreto persistido en disco (un `pm2 restart` no te desloguea). Rate limiting de 8 intentos por IP.
 
 Protegidos: `/backoffice/`, la API y el WebSocket de video. **Público a propósito:** `/kiosk/` — es una pantalla física que arranca sola con el sistema; si pidiera login no podría bootear desatendida.
+
+### Saludo a Personas de Interés
+
+Cuando el webhook de Verkada trae un evento de POI (`person_of_interest`), en vez de alarma se dispara una bienvenida: popup en el kiosko con el nombre del perfil y la foto del evento, y los LEDs pasan al preset configurado unos segundos antes de volver solos al estado anterior (un comando manual del operador cancela la restauración). La foto **no** se muestra desde la URL de Verkada — es firmada, puede expirar, y el kiosko puede estar sin internet — sino que el servidor la descarga una vez y la sirve local desde `/poi-images/`. Todo se configura en `.env` (`POI_*`); una llamada en curso tiene prioridad sobre el popup.
+
+### Apariencia del kiosko sin tocar código
+
+Desde el backoffice (panel **Apariencia del Kiosko**) se editan tipografía, color del texto, tamaño del reloj y de los textos, y qué widgets se ven (reloj, fecha, clima, línea de estado). Se guarda en `config/appearance.json` — fuera del repo, como `cameras.json`, porque es configuración del sitio — y se aplica **en vivo** por socket: el kiosko no se reinicia. Las tipografías son una lista curada de fuentes del sistema, no webfonts: misma razón que en `tokens.css`, un kiosko sin internet no puede bloquear el render esperando a Google Fonts.
 
 ### Historial sin base de datos
 

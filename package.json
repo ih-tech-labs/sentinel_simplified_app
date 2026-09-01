@@ -10,7 +10,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "hash": "./sentinel password",
-    "check": "node -e \"['src/server.js','src/auth.js','src/streams.js','src/events.js','src/system.js','src/devices.js','src/sockets.js','src/config.js','src/cameras.js'].forEach(f=>{new (require('vm').Script)(require('fs').readFileSync(f,'utf8'),{filename:f});console.log('OK',f)})\""
+    "check": "node -e \"['src/server.js','src/auth.js','src/streams.js','src/events.js','src/system.js','src/devices.js','src/sockets.js','src/config.js','src/cameras.js','src/poi.js','src/appearance.js'].forEach(f=>{new (require('vm').Script)(require('fs').readFileSync(f,'utf8'),{filename:f});console.log('OK',f)})\""
   },
   "dependencies": {
     "dotenv": "^16.4.5",

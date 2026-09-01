@@ -102,6 +102,49 @@
         </div>
       </section>
 
+      <!-- Apariencia del kiosko -->
+      <section class="panel">
+        <div class="panel-head">
+          <h3>Apariencia del Kiosko</h3>
+          <span class="dot-state" id="ap-state" title="Estado del último guardado"></span>
+        </div>
+        <div class="panel-body appearance">
+          <label class="ap-field">
+            <span class="ap-label">Tipografía</span>
+            <select id="ap-font"></select>
+          </label>
+
+          <label class="ap-field">
+            <span class="ap-label">Color del texto <b class="ap-val" id="ap-color-val">#ffffff</b></span>
+            <input type="color" id="ap-color" value="#ffffff">
+          </label>
+
+          <label class="ap-field">
+            <span class="ap-label">Tamaño del reloj <b class="ap-val" id="ap-clock-val">100%</b></span>
+            <input type="range" id="ap-clock" min="50" max="200" step="5" value="100">
+          </label>
+
+          <label class="ap-field">
+            <span class="ap-label">Tamaño de textos <b class="ap-val" id="ap-text-val">100%</b></span>
+            <input type="range" id="ap-text" min="50" max="200" step="5" value="100">
+          </label>
+
+          <div class="ap-label">Widgets visibles</div>
+          <div class="ap-widgets">
+            <label><input type="checkbox" id="ap-w-clock" checked><span>Reloj</span></label>
+            <label><input type="checkbox" id="ap-w-date" checked><span>Fecha</span></label>
+            <label><input type="checkbox" id="ap-w-weather" checked><span>Clima</span></label>
+            <label><input type="checkbox" id="ap-w-status" checked><span>Estado</span></label>
+          </div>
+
+          <div class="ap-actions">
+            <button class="btn btn-primary" id="ap-save"><span>Aplicar</span></button>
+            <button class="btn" id="ap-reset" title="Volver a los valores originales"><span>Restablecer</span></button>
+          </div>
+          <div class="gpio-feedback" id="ap-feedback"></div>
+        </div>
+      </section>
+
       <!-- Historial -->
       <section class="panel panel-grow">
         <div class="panel-head">

@@ -137,6 +137,14 @@ check_config() {
     check_warn "Sin config/cameras.json" "se usan los valores por defecto"
   fi
 
+  # appearance.json es opcional (sin él, el kiosko usa los valores de siempre),
+  # pero si existe y está roto conviene enterarse acá y no mirando el kiosko.
+  if [ -f "$APP_DIR/config/appearance.json" ]; then
+    node -e 'JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"))' "$APP_DIR/config/appearance.json" 2>/dev/null \
+      && check_pass "appearance.json válido" \
+      || check_warn "appearance.json tiene JSON inválido" "el kiosko usa los valores por defecto"
+  fi
+
   [ -n "$(env_get VERKADA_SHARED_SECRET)" ] \
     && check_pass "Secret de Verkada configurado" \
     || check_warn "VERKADA_SHARED_SECRET vacío" "el webhook va a rechazar todo"

@@ -91,6 +91,13 @@ const config = {
   GPIO_PORT: int('GPIO_PORT', 8765),
   GPIO_SCRIPT: process.env.GPIO_SCRIPT || path.join(ROOT, 'scripts', 'GPIO_control.py'),
 
+  // --- Saludo a Personas de Interes (POI de Verkada) ---
+  POI_ENABLED: bool('POI_ENABLED', true),
+  POI_POPUP_SECONDS: int('POI_POPUP_SECONDS', 10),
+  POI_LED_PRESET: process.env.POI_LED_PRESET || 'green',
+  POI_LED_SECONDS: int('POI_LED_SECONDS', 10),
+  POI_GREETING_TEXT: process.env.POI_GREETING_TEXT || '\u00a1Bienvenido/a, {name}!',
+
   // --- Salud del sistema ---
   HEALTH_INTERVAL_MS: int('HEALTH_INTERVAL_S', 5) * 1000,
 

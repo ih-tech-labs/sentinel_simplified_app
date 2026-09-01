@@ -20,6 +20,9 @@
   --ok: #34d399;
   --bad: #f87171;
   --font: "Inter", "Segoe UI", "Noto Sans", "DejaVu Sans", system-ui, sans-serif;
+  /* Escalas editables desde el backoffice (Apariencia del Kiosko) */
+  --clock-scale: 1;
+  --text-scale: 1;
 }
 
 *,
@@ -100,7 +103,7 @@ body {
 }
 
 .date {
-  font-size: clamp(18px, 2.4vw, 34px);
+  font-size: calc(clamp(18px, 2.4vw, 34px) * var(--text-scale, 1));
   font-weight: 500;
   letter-spacing: .02em;
   color: var(--ink-soft);
@@ -108,7 +111,7 @@ body {
 }
 
 .clock {
-  font-size: clamp(90px, 16vw, 240px);
+  font-size: calc(clamp(90px, 16vw, 240px) * var(--clock-scale, 1));
   font-weight: 200;
   line-height: .92;
   letter-spacing: -.03em;
@@ -161,7 +164,7 @@ body {
 }
 
 .w-temp {
-  font-size: clamp(38px, 5.4vw, 68px);
+  font-size: calc(clamp(38px, 5.4vw, 68px) * var(--text-scale, 1));
   font-weight: 300;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -169,7 +172,7 @@ body {
 
 .w-desc {
   margin-top: .3em;
-  font-size: clamp(13px, 1.6vw, 22px);
+  font-size: calc(clamp(13px, 1.6vw, 22px) * var(--text-scale, 1));
   color: var(--ink-soft);
   white-space: nowrap;
   overflow: hidden;
@@ -182,13 +185,13 @@ body {
 }
 
 .w-city {
-  font-size: clamp(15px, 1.8vw, 26px);
+  font-size: calc(clamp(15px, 1.8vw, 26px) * var(--text-scale, 1));
   font-weight: 600;
 }
 
 .w-range {
   margin-top: .35em;
-  font-size: clamp(12px, 1.4vw, 18px);
+  font-size: calc(clamp(12px, 1.4vw, 18px) * var(--text-scale, 1));
   color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
 }
@@ -198,7 +201,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: clamp(11px, 1.15vw, 15px);
+  font-size: calc(clamp(11px, 1.15vw, 15px) * var(--text-scale, 1));
   letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -387,7 +390,7 @@ body {
 
 @media (orientation: landscape) {
   .clock {
-    font-size: clamp(70px, 11vw, 170px);
+    font-size: calc(clamp(70px, 11vw, 170px) * var(--clock-scale, 1));
   }
 
   .idle {
@@ -397,4 +400,81 @@ body {
   .stack-top {
     margin-top: 1vh;
   }
+}
+
+/* ==========================================================================
+   SALUDO POI
+   Popup de bienvenida cuando Verkada reconoce a una Persona de Interés.
+   Debajo de la llamada (z-index 4 < 5): una llamada entrante lo tapa.
+   Sin backdrop-filter, como todo en este archivo (regla de oro).
+   ========================================================================== */
+
+.poi {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6vw;
+  background: rgba(0, 0, 0, .55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .45s ease;
+}
+
+.poi.show {
+  opacity: 1;
+}
+
+.poi-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4vh;
+  padding: clamp(28px, 5vh, 64px) clamp(28px, 6vw, 72px);
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-radius: 34px;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, .55);
+  transform: translateY(24px) scale(.96);
+  transition: transform .45s cubic-bezier(.2, .9, .3, 1.2);
+  max-width: 86vw;
+}
+
+.poi.show .poi-card {
+  transform: translateY(0) scale(1);
+}
+
+.poi-photo {
+  width: clamp(180px, 34vw, 420px);
+  height: clamp(180px, 34vw, 420px);
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4px solid rgba(255, 255, 255, .85);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .5);
+  background: rgba(255, 255, 255, .08);
+  flex: 0 0 auto;
+}
+
+.poi-photo.hidden {
+  display: none;
+}
+
+.poi-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.poi-text {
+  font-size: calc(clamp(34px, 5.6vw, 84px) * var(--text-scale, 1));
+  font-weight: 300;
+  text-align: center;
+  line-height: 1.15;
+  letter-spacing: -.01em;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, .5);
+  max-width: 80vw;
+  overflow-wrap: break-word;
 }

@@ -25,6 +25,8 @@ const events = require('./events');
 const system = require('./system');
 const devices = require('./devices');
 const sockets = require('./sockets');
+const poi = require('./poi');
+const appearance = require('./appearance');
 const { StreamManager } = require('./streams');
 
 const PUBLIC_DIR = path.join(config.ROOT, 'public');
@@ -195,6 +197,28 @@ api.post('/devices/frame', async (req, res) => {
   res.status(result.ok ? 200 : 502).json(result);
 });
 
+api.get('/appearance', (_req, res) => {
+  res.json({ config: appearance.get(), fonts: appearance.fontOptions() });
+});
+
+api.put('/appearance', (req, res) => {
+  try {
+    const cfg = appearance.set(req.body || {});
+    hub.emitAppearance(appearance.publicConfig());
+    console.log(`[APPEARANCE] ${req.session.u} actualizó la apariencia del kiosko`);
+    events.record({
+      type: 'appearance_change',
+      severity: 'info',
+      source: 'manual',
+      camera: 'Sistema',
+      details: `${req.session.u} actualizó la apariencia del kiosko`,
+    });
+    res.json({ ok: true, config: cfg });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
 app.use('/api', api);
 
 // ---------------------------------------------------------------------------
@@ -240,7 +264,8 @@ function validateVerkada(req, res, next) {
 app.post('/verkada-webhook', validateVerkada, (req, res) => {
   const body = req.body || {};
   const data = body.data || {};
-  const deviceId = data.device_id;
+  // El formato clasico manda device_id; los webhooks por evento, camera_id.
+  const deviceId = data.device_id || data.camera_id;
   const eventType = data.notification_type || data.event_type || body.webhook_type || 'unknown';
 
   const cam = cameras.byDeviceId(deviceId);
@@ -265,6 +290,29 @@ app.post('/verkada-webhook', validateVerkada, (req, res) => {
     console.log('  └──────────────────────────────────────────────────────────');
     console.log('');
     return res.status(200).json({ status: 'ignored', reason: 'unknown_camera', deviceId });
+  }
+
+  // --- Persona de Interes: saludo, no alarma --------------------------------
+  // Va ANTES del filtro de allowedEvents: el saludo es una funcion aparte de
+  // las alarmas (se controla global con POI_ENABLED, no por camara).
+  const poiName = data.person_label
+    || (data.details && data.details.profile_name)
+    || null;
+  const isPoi = String(eventType).toLowerCase().includes('person_of_interest') || Boolean(poiName);
+
+  if (isPoi) {
+    if (!config.POI_ENABLED) {
+      console.log(`[WEBHOOK] POI ignorado (POI_ENABLED=false) para ${cam.name}`);
+      return res.status(200).json({ status: 'ignored', reason: 'poi_disabled' });
+    }
+    console.log(`[WEBHOOK] POI ${cam.name} <- ${poiName || 'sin nombre'}`);
+    // Respondemos 200 YA: Verkada reintenta si tardamos, y descargar la foto
+    // puede llevar unos segundos. El saludo sigue en segundo plano.
+    res.status(200).json({ status: 'ok', poi: true });
+    handlePoiGreeting(cam, poiName, data).catch((err) => {
+      console.error('[POI] Error en el saludo:', err.message);
+    });
+    return;
   }
 
   if (Array.isArray(cam.allowedEvents) && !cam.allowedEvents.includes(eventType)) {
@@ -296,10 +344,56 @@ function prettyEvent(type) {
     alert_rule_vehicle: 'Vehículo detectado',
     alert_rule_loitering: 'Merodeo detectado',
     alert_rule_crowd: 'Aglomeración detectada',
+    person_of_interest: 'Persona de interés',
     tamper: 'Manipulación de cámara',
     camera_offline: 'Cámara desconectada',
   };
   return map[type] || `Evento: ${type}`;
+}
+
+// ---------------------------------------------------------------------------
+// Saludo POI: popup en el kiosko + LEDs temporales
+// ---------------------------------------------------------------------------
+
+async function handlePoiGreeting(cam, name, data) {
+  const displayName = name || 'Visitante';
+  const entry = events.record({
+    kioskId: cam.id,
+    camera: cam.name,
+    cameraId: data.device_id || data.camera_id || null,
+    type: 'poi_greeting',
+    severity: 'info',
+    source: 'verkada',
+    details: `Persona de interés reconocida: ${displayName}`,
+  });
+
+  // La foto se descarga aca y se sirve local (ver src/poi.js): la URL de
+  // Verkada puede ser firmada con expiracion y el kiosko puede estar sin
+  // internet. Si falla, el saludo sale igual, solo que sin imagen.
+  let image = null;
+  if (data.image_url) {
+    try {
+      image = await poi.fetchImage(data.image_url);
+    } catch (err) {
+      console.warn('[POI] No se pudo descargar la foto:', err.message);
+    }
+  }
+
+  hub.emitPoiGreeting(cam.id, {
+    name: displayName,
+    text: config.POI_GREETING_TEXT.replace('{name}', displayName),
+    image,
+    seconds: config.POI_POPUP_SECONDS,
+    ts: entry.ts,
+  });
+  hub.emitPoiEvent(entry);
+
+  // LEDs: preset temporal que vuelve solo al estado anterior.
+  if (config.GPIO_ENABLED && config.POI_LED_PRESET) {
+    devices.sendTemporaryPreset(config.POI_LED_PRESET, config.POI_LED_SECONDS).then((r) => {
+      if (!r.ok) console.warn('[POI] LEDs:', r.error);
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -327,6 +421,10 @@ const staticOpts = {
 // Publico: kiosko (es una pantalla fisica, no puede pedir login), assets y login
 app.use('/assets', express.static(path.join(PUBLIC_DIR, 'assets'), staticOpts));
 app.use('/vendor', express.static(path.join(PUBLIC_DIR, 'vendor'), staticOpts));
+// Fotos de los saludos POI (descargadas por el servidor, ver src/poi.js).
+// Publico porque las muestra el kiosko; los nombres son aleatorios y el
+// directorio rota (se conservan solo las ultimas).
+app.use('/poi-images', express.static(path.join(config.DATA_DIR, 'poi'), staticOpts));
 // Tokens de diseño compartidos: publicos porque tambien los usa la pagina de login
 app.use('/ui', express.static(path.join(PUBLIC_DIR, 'shared'), staticOpts));
 app.use('/kiosk', express.static(path.join(PUBLIC_DIR, 'kiosk'), staticOpts));
@@ -337,6 +435,13 @@ app.use('/backoffice', auth.requirePage, express.static(path.join(PUBLIC_DIR, 'b
 
 app.get('/', (req, res) => res.redirect(req.session ? '/backoffice/' : '/login/'));
 app.get('/healthz', (_req, res) => res.json({ ok: true, uptime: Math.round(process.uptime()) }));
+
+// Publico a proposito: el kiosko la lee al arrancar (no puede pedir login) y
+// es solo estetica: no expone nada del sitio.
+app.get('/kiosk-appearance', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.json(appearance.publicConfig());
+});
 
 /**
  * Metricas de video para diagnosticar a distancia, sin sesion.

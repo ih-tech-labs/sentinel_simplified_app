@@ -252,6 +252,18 @@ function register(io, ctx) {
     emitHealth(payload) {
       io.to(BACKOFFICE_ROOM).emit('health', payload);
     },
+    /** Saludo a una Persona de Interes -> popup en su kiosko. */
+    emitPoiGreeting(kioskId, payload) {
+      io.to(roomFor(kioskId)).emit('poi_greeting', payload);
+    },
+    /** El saludo tambien queda en la linea de tiempo del backoffice. */
+    emitPoiEvent(entry) {
+      io.to(BACKOFFICE_ROOM).emit('poi_event', entry);
+    },
+    /** Apariencia del kiosko actualizada -> se aplica en vivo, sin reiniciar. */
+    emitAppearance(cfg) {
+      io.emit('appearance_updated', cfg);
+    },
     onlineKiosks,
     getActiveCall: () => activeCall,
   };

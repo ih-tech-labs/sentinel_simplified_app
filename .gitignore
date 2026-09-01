@@ -19,6 +19,9 @@ yarn-error.log*
 .session_secret
 config/cameras.json
 
+# Apariencia del kiosko: es config del sitio (se edita desde el backoffice)
+config/appearance.json
+
 # --- Datos en ejecución ---
 data/
 *.jsonl

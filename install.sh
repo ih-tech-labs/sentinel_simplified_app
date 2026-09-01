@@ -618,6 +618,18 @@ GPIO_ENABLED=$GPIO_ENABLED
 GPIO_HOST=127.0.0.1
 GPIO_PORT=8765
 
+# --- Saludo a Personas de Interés (POI) --------------------------------------
+# Cuando Verkada reconoce a un POI, el kiosko muestra un popup de bienvenida
+# (con la foto del evento si el webhook la trae) y los LEDs cambian de color
+# unos segundos antes de volver solos al estado anterior.
+POI_ENABLED=true
+POI_POPUP_SECONDS=10
+# Preset de luces del saludo (off/white/warm/blue/green/red/yellow) y duración
+POI_LED_PRESET=green
+POI_LED_SECONDS=10
+# {name} se reemplaza por el nombre del perfil en Verkada
+POI_GREETING_TEXT=¡Bienvenido/a, {name}!
+
 # --- Telemetría ------------------------------------------------------------
 HEALTH_INTERVAL_S=5
 EOF

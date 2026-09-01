@@ -133,6 +133,50 @@
   setInterval(updateWeather, 15 * 60 * 1000);
 
   // ==========================================================================
+  // Apariencia (editable desde el backoffice)
+  // ==========================================================================
+
+  function hexToRgba(hex, alpha) {
+    const m = /^#([0-9a-f]{6})$/i.exec(String(hex || ''));
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+  }
+
+  function applyAppearance(cfg) {
+    if (!cfg || typeof cfg !== 'object') return;
+    const root = document.documentElement.style;
+
+    if (cfg.fontStack) root.setProperty('--font', cfg.fontStack);
+
+    if (cfg.textColor) {
+      root.setProperty('--ink', cfg.textColor);
+      // Los tonos suaves se derivan del color elegido, igual que los
+      // rgba(255,255,255,...) originales derivaban del blanco.
+      const soft = hexToRgba(cfg.textColor, .74);
+      const faint = hexToRgba(cfg.textColor, .5);
+      if (soft) root.setProperty('--ink-soft', soft);
+      if (faint) root.setProperty('--ink-faint', faint);
+    }
+
+    root.setProperty('--clock-scale', cfg.clockScale || 1);
+    root.setProperty('--text-scale', cfg.textScale || 1);
+
+    const w = cfg.widgets || {};
+    const show = (node, on) => { if (node) node.style.display = on === false ? 'none' : ''; };
+    show(el.clock, w.clock);
+    show(el.date, w.date);
+    show($('weather'), w.weather);
+    show(el.sdot, w.status);
+  }
+
+  // Al arrancar; los cambios en vivo llegan por socket ('appearance_updated').
+  fetch('/kiosk-appearance', { cache: 'no-store' })
+    .then((r) => r.json())
+    .then(applyAppearance)
+    .catch((err) => console.warn('[appearance]', err.message));
+
+  // ==========================================================================
   // Watchdog del video de fondo
   // ==========================================================================
 
@@ -210,6 +254,39 @@
   socket.on('disconnect', () => setStatus('bad', 'Sin conexión'));
   socket.on('connect_error', () => setStatus('bad', 'Reconectando'));
 
+  socket.on('appearance_updated', applyAppearance);
+
+  // ==========================================================================
+  // Saludo POI
+  // ==========================================================================
+
+  let poiTimer = null;
+
+  function hidePoi() {
+    $('poi').classList.remove('show');
+    if (poiTimer) { clearTimeout(poiTimer); poiTimer = null; }
+  }
+
+  socket.on('poi_greeting', (data) => {
+    if (!data || state.inCall) return; // una llamada tiene prioridad
+
+    const photo = $('poi-photo');
+    const img = $('poi-img');
+    if (data.image) {
+      img.src = data.image;
+      photo.classList.remove('hidden');
+    } else {
+      img.removeAttribute('src');
+      photo.classList.add('hidden');
+    }
+
+    $('poi-text').textContent = data.text || ('¡Bienvenido/a, ' + (data.name || '') + '!');
+
+    $('poi').classList.add('show');
+    if (poiTimer) clearTimeout(poiTimer);
+    poiTimer = setTimeout(hidePoi, Math.max(3, Number(data.seconds) || 10) * 1000);
+  });
+
   // ==========================================================================
   // WebRTC — listeners registrados UNA sola vez
   // ==========================================================================
@@ -285,6 +362,7 @@
   async function _enterCall() {
     if (state.pc) return;
     state.inCall = true;
+    hidePoi(); // la llamada tiene prioridad sobre el saludo
 
     el.idle.classList.add('away');
     el.call.classList.add('active');

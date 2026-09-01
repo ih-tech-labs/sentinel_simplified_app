@@ -590,6 +590,92 @@
   }
 
   // ==========================================================================
+  // Apariencia del kiosko
+  // ==========================================================================
+
+  function fillAppearanceForm(cfg, fonts) {
+    if (fonts) {
+      $('ap-font').innerHTML = fonts.map((f) =>
+        `<option value="${esc(f.key)}">${esc(f.label)}</option>`).join('');
+    }
+    if (!cfg) return;
+    $('ap-font').value = cfg.fontFamily || 'default';
+    $('ap-color').value = cfg.textColor || '#ffffff';
+    $('ap-color-val').textContent = cfg.textColor || '#ffffff';
+    $('ap-clock').value = Math.round((cfg.clockScale || 1) * 100);
+    $('ap-text').value = Math.round((cfg.textScale || 1) * 100);
+    $('ap-clock-val').textContent = $('ap-clock').value + '%';
+    $('ap-text-val').textContent = $('ap-text').value + '%';
+    const w = cfg.widgets || {};
+    $('ap-w-clock').checked = w.clock !== false;
+    $('ap-w-date').checked = w.date !== false;
+    $('ap-w-weather').checked = w.weather !== false;
+    $('ap-w-status').checked = w.status !== false;
+  }
+
+  async function loadAppearance() {
+    try {
+      const res = await fetch('/api/appearance');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      fillAppearanceForm(data.config, data.fonts);
+    } catch (err) {
+      console.warn('[appearance]', err);
+    }
+  }
+
+  $('ap-clock').oninput = () => { $('ap-clock-val').textContent = $('ap-clock').value + '%'; };
+  $('ap-text').oninput = () => { $('ap-text-val').textContent = $('ap-text').value + '%'; };
+  $('ap-color').oninput = () => { $('ap-color-val').textContent = $('ap-color').value; };
+
+  async function putAppearance(body, okMsg) {
+    const fb = $('ap-feedback');
+    $('ap-save').disabled = true;
+    $('ap-reset').disabled = true;
+    fb.className = 'gpio-feedback';
+    fb.textContent = 'Guardando...';
+    try {
+      const res = await fetch('/api/appearance', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'HTTP ' + res.status);
+      fillAppearanceForm(data.config);
+      fb.className = 'gpio-feedback ok';
+      fb.textContent = okMsg;
+      $('ap-state').className = 'dot-state ok';
+      setTimeout(() => { if (fb.classList.contains('ok')) fb.textContent = ''; }, 4000);
+    } catch (err) {
+      fb.className = 'gpio-feedback bad';
+      fb.textContent = '✗ ' + err.message;
+      $('ap-state').className = 'dot-state bad';
+    } finally {
+      $('ap-save').disabled = false;
+      $('ap-reset').disabled = false;
+    }
+  }
+
+  $('ap-save').onclick = () => putAppearance({
+    fontFamily: $('ap-font').value,
+    textColor: $('ap-color').value,
+    clockScale: Number($('ap-clock').value) / 100,
+    textScale: Number($('ap-text').value) / 100,
+    widgets: {
+      clock: $('ap-w-clock').checked,
+      date: $('ap-w-date').checked,
+      weather: $('ap-w-weather').checked,
+      status: $('ap-w-status').checked,
+    },
+  }, '✓ Aplicado en el kiosko');
+
+  $('ap-reset').onclick = () => putAppearance({ reset: true }, '✓ Valores originales restaurados');
+
+  // Otro operador guardó desde otra pestaña: sincronizamos este formulario
+  socket.on('appearance_updated', (cfg) => fillAppearanceForm(cfg));
+
+  // ==========================================================================
   // WebRTC
   // ==========================================================================
 
@@ -844,6 +930,7 @@
       try { fn(); } catch (err) { console.error('[bootstrap] ' + nombre + ':', err); }
     };
     paso('presets', loadPresets);
+    paso('apariencia', loadAppearance);
     paso('tarjetas', buildCards);
     paso('presencia', renderPresence);
     paso('eventos', renderTimeline);
@@ -868,6 +955,13 @@
     if (state.events.length > MAX_EVENTS) state.events.length = MAX_EVENTS;
     renderTimeline();
     triggerAlarm(evt);
+  });
+
+  // Saludo POI: entra a la línea de tiempo, sin sirena ni tarjeta en rojo
+  socket.on('poi_event', (evt) => {
+    state.events.unshift(evt);
+    if (state.events.length > MAX_EVENTS) state.events.length = MAX_EVENTS;
+    renderTimeline();
   });
 
   socket.on('event_acked', ({ id }) => {
