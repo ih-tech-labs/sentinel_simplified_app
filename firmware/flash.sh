@@ -39,18 +39,26 @@ echo "==> Placa : $FQBN"
 # --- 1. arduino-cli ----------------------------------------------------------
 if ! command -v arduino-cli >/dev/null 2>&1; then
   echo "==> Instalando arduino-cli..."
-  case "$(uname -m)" in
-    aarch64)        ARCH="ARM64" ;;
-    armv7l|armv6l)  ARCH="ARMv7" ;;
-    x86_64)         ARCH="64bit" ;;
-    *) echo "Arquitectura no soportada: $(uname -m)"; exit 1 ;;
-  esac
-  TMP="$(mktemp -d)"
-  curl -fsSL -o "$TMP/cli.tar.gz" \
-    "https://github.com/arduino/arduino-cli/releases/latest/download/arduino-cli_latest_Linux_${ARCH}.tar.gz"
-  tar -xzf "$TMP/cli.tar.gz" -C "$TMP" arduino-cli
-  sudo mv "$TMP/arduino-cli" /usr/local/bin/
-  rm -rf "$TMP"
+  # Camino 1: instalador oficial (resuelve solo la versión y la arquitectura)
+  if ! curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh \
+      | sudo BINDIR=/usr/local/bin sh; then
+    # Camino 2: release fijado de GitHub (el nombre del asset lleva la versión,
+    # NO existe un "arduino-cli_latest_..." en GitHub)
+    echo "==> Instalador oficial falló, bajando release fijado de GitHub..."
+    CLI_VERSION="1.1.1"
+    case "$(uname -m)" in
+      aarch64)        ARCH="ARM64" ;;
+      armv7l|armv6l)  ARCH="ARMv7" ;;
+      x86_64)         ARCH="64bit" ;;
+      *) echo "Arquitectura no soportada: $(uname -m)"; exit 1 ;;
+    esac
+    TMP="$(mktemp -d)"
+    curl -fsSL -o "$TMP/cli.tar.gz" \
+      "https://github.com/arduino/arduino-cli/releases/download/v${CLI_VERSION}/arduino-cli_${CLI_VERSION}_Linux_${ARCH}.tar.gz"
+    tar -xzf "$TMP/cli.tar.gz" -C "$TMP" arduino-cli
+    sudo mv "$TMP/arduino-cli" /usr/local/bin/
+    rm -rf "$TMP"
+  fi
 fi
 echo "==> $(arduino-cli version)"
 
