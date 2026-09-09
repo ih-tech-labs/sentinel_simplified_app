@@ -13,6 +13,7 @@
     "allowedEvents  tipos de evento que disparan alarma. null = todos.",
     "",
     "Usá el substream si la cámara lo tiene: consume una fracción del CPU.",
+    "  Verkada    /standard                 (en vez de /high)",
     "  Hikvision  /Streaming/Channels/102   (en vez de /101)",
     "  Dahua      subtype=1                 (en vez de subtype=0)"
   ],

@@ -67,12 +67,14 @@ const config = {
   WEBHOOK_TOLERANCE_S: int('WEBHOOK_TOLERANCE_S', 120),
 
   // --- Streams (transcode RTSP -> MPEG1 para jsmpeg) ---
-  // Valores de la v4, que era la que se veia bien.
+  // Defaults afinados para la RPi 5 (sin decoder H.264 por HW): 12 fps y 450k
+  // mantienen el ffmpeg liviano en un equipo fanless. En cámaras Verkada,
+  // además, apuntar el rtspUrl al substream /standard (no /high) es lo que más
+  // baja el CPU. Un sitio puede pisar estos valores en su .env.
   STREAM_WIDTH: int('STREAM_WIDTH', 640),
   STREAM_HEIGHT: int('STREAM_HEIGHT', 360),
-  STREAM_FPS: int('STREAM_FPS', 24),
-  // Vacio = default de ffmpeg (200k), que es lo que usaba la v4.
-  STREAM_BITRATE: process.env.STREAM_BITRATE || '',
+  STREAM_FPS: int('STREAM_FPS', 12),
+  STREAM_BITRATE: process.env.STREAM_BITRATE || '450k',
   // 0 = mitad del fps, o sea un I-frame cada medio segundo (como la v4).
   STREAM_GOP: int('STREAM_GOP', 0),
   // Segundos sin espectadores antes de matar ffmpeg (0 = nunca apagar)
