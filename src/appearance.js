@@ -40,6 +40,9 @@ const DEFAULTS = Object.freeze({
   textColor: '#ffffff',
   clockScale: 1,    // multiplica el tamanio del reloj (0.5 a 2)
   textScale: 1,     // multiplica fecha, clima y linea de estado (0.5 a 2)
+  // 0 = respetar el grosor de cada elemento (diseno original). 100..800 =
+  // forzar ese grosor en reloj, fecha, clima y estado.
+  fontWeight: 0,
   widgets: Object.freeze({ clock: true, date: true, weather: true, status: true }),
 });
 
@@ -56,6 +59,14 @@ function clampScale(v, fallback) {
   return Math.min(2, Math.max(0.5, Math.round(n * 100) / 100));
 }
 
+// 0 = automatico (respeta el diseno). Si no, se redondea al multiplo de 100
+// mas cercano dentro de 100..800 (los pesos que definen las fuentes reales).
+function clampWeight(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(800, Math.max(100, Math.round(n / 100) * 100));
+}
+
 function sanitize(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
   const out = {
@@ -67,6 +78,7 @@ function sanitize(raw) {
       : DEFAULTS.textColor,
     clockScale: clampScale(src.clockScale, DEFAULTS.clockScale),
     textScale: clampScale(src.textScale, DEFAULTS.textScale),
+    fontWeight: clampWeight(src.fontWeight),
     widgets: {},
   };
   const w = src.widgets && typeof src.widgets === 'object' ? src.widgets : {};

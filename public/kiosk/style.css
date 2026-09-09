@@ -23,6 +23,9 @@
   /* Escalas editables desde el backoffice (Apariencia del Kiosko) */
   --clock-scale: 1;
   --text-scale: 1;
+  /* Grosor de fuente. Descomentá y poné 300..800 para forzarlo en reloj,
+     fecha y clima (o cambialo desde el backoffice). Sin definir = diseno original. */
+  /* --font-weight: 400; */
 }
 
 *,
@@ -104,7 +107,7 @@ body {
 
 .date {
   font-size: calc(clamp(18px, 2.4vw, 34px) * var(--text-scale, 1));
-  font-weight: 500;
+  font-weight: var(--font-weight, 500);
   letter-spacing: .02em;
   color: var(--ink-soft);
   text-shadow: 0 2px 12px rgba(0, 0, 0, .5);
@@ -112,7 +115,7 @@ body {
 
 .clock {
   font-size: calc(clamp(90px, 16vw, 240px) * var(--clock-scale, 1));
-  font-weight: 200;
+  font-weight: var(--font-weight, 200);
   line-height: .92;
   letter-spacing: -.03em;
   font-variant-numeric: tabular-nums;
@@ -165,7 +168,7 @@ body {
 
 .w-temp {
   font-size: calc(clamp(38px, 5.4vw, 68px) * var(--text-scale, 1));
-  font-weight: 300;
+  font-weight: var(--font-weight, 300);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -186,7 +189,7 @@ body {
 
 .w-city {
   font-size: calc(clamp(15px, 1.8vw, 26px) * var(--text-scale, 1));
-  font-weight: 600;
+  font-weight: var(--font-weight, 600);
 }
 
 .w-range {

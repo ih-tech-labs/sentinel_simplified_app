@@ -68,6 +68,21 @@ wd_check_gpio() {
   return 1
 }
 
+wd_check_kiosk() {
+  local desktop="$HOME/.config/autostart/sentinel-kiosk.desktop"
+  [ -f "$desktop" ] || { echo "kiosko|ok|sin pantalla en este equipo"; return 0; }
+  local id; id="$(grep -m1 'sentinel kiosk' "$desktop" | awk '{print $NF}')"
+  [ -z "$id" ] && { echo "kiosko|ok|sin id configurado"; return 0; }
+  local port; port="$(app_port)"
+  local body; body="$(curl -fsS --max-time 4 "http://localhost:$port/healthz/kiosks" 2>/dev/null)"
+  [ -z "$body" ] && { echo "kiosko|ok|servidor sin responder (lo cubre el check del servidor)"; return 0; }
+  if printf '%s' "$body" | grep -q "\"$id\":true"; then
+    echo "kiosko|ok|puesto '$id' conectado"
+  else
+    echo "kiosko|fallo|el navegador del puesto '$id' no esta conectado (el kiosko se autorecupera; si persiste, revisar la pantalla)"
+  fi
+}
+
 wd_check_tunnel() {
   [ -f /etc/cloudflared/config.yml ] || { echo "túnel|ok|no configurado en este equipo"; return 0; }
   systemctl is-active --quiet cloudflared 2>/dev/null \
@@ -177,8 +192,8 @@ wd_recover() {
   case "${1:-}" in --auto|--yes|-y) auto=1 ;; esac
 
   banner "RECUPERAR SENTINEL"
-  local checks=(wd_check_server wd_check_tunnel wd_check_stream wd_check_camera)
-  local fixes=(wd_fix_server wd_fix_tunnel wd_fix_server wd_fix_nada)
+  local checks=(wd_check_server wd_check_tunnel wd_check_stream wd_check_camera wd_check_kiosk)
+  local fixes=(wd_fix_server wd_fix_tunnel wd_fix_server wd_fix_nada wd_fix_nada)
   # El Arduino queda afuera salvo que se pida expresamente (ver nota arriba)
   if [ "${WATCHDOG_CHECK_GPIO:-0}" = "1" ]; then
     checks+=(wd_check_gpio); fixes+=(wd_fix_gpio)
@@ -258,8 +273,8 @@ wd_recover() {
 # wd_run — pensado para el timer: silencioso salvo que haya algo que decir
 # ---------------------------------------------------------------------------
 wd_run() {
-  local checks=(wd_check_server wd_check_tunnel wd_check_stream wd_check_camera)
-  local fixes=(wd_fix_server wd_fix_tunnel wd_fix_server wd_fix_nada)
+  local checks=(wd_check_server wd_check_tunnel wd_check_stream wd_check_camera wd_check_kiosk)
+  local fixes=(wd_fix_server wd_fix_tunnel wd_fix_server wd_fix_nada wd_fix_nada)
   if [ "${WATCHDOG_CHECK_GPIO:-0}" = "1" ]; then
     checks+=(wd_check_gpio); fixes+=(wd_fix_gpio)
   fi

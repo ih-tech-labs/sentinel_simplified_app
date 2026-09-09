@@ -458,7 +458,27 @@ app.get('/healthz', (_req, res) => res.json({ ok: true, uptime: Math.round(proce
 // es solo estetica: no expone nada del sitio.
 app.get('/kiosk-appearance', (_req, res) => {
   res.setHeader('Cache-Control', 'no-cache');
-  res.json(appearance.publicConfig());
+  // La apariencia + la ubicacion del clima: es la config que el kiosko lee al
+  // arrancar. La ubicacion vive en .env (WEATHER_*), una por sitio.
+  res.json({
+    ...appearance.publicConfig(),
+    weather: {
+      lat: config.WEATHER_LAT,
+      lon: config.WEATHER_LON,
+      city: config.WEATHER_CITY,
+      timezone: config.WEATHER_TIMEZONE,
+    },
+  });
+});
+
+/**
+ * Presencia de los kioskos, sin auth. La usa el lazo supervisor del kiosko
+ * (sentinel kiosk) y el watchdog para saber si el navegador de un puesto sigue
+ * conectado. Solo ids y booleanos: los ids ya son publicos (van en la URL).
+ */
+app.get('/healthz/kiosks', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.json({ ok: true, kiosks: hub.onlineKiosks() });
 });
 
 /**

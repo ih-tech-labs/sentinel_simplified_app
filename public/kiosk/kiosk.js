@@ -103,12 +103,17 @@
     return WMO[0];
   }
 
+  // Ubicacion del clima: viene del servidor (.env, WEATHER_*). Arranca con un
+  // default por si la config todavia no llego; applyAppearance() la actualiza.
+  const weatherLoc = { lat: '-37.0206', lon: '-56.8309', city: 'Costa Esmeralda',
+    timezone: 'America/Argentina/Buenos_Aires' };
+
   async function updateWeather() {
     const url = 'https://api.open-meteo.com/v1/forecast'
-      + '?latitude=-34.6037&longitude=-58.3816'
+      + `?latitude=${encodeURIComponent(weatherLoc.lat)}&longitude=${encodeURIComponent(weatherLoc.lon)}`
       + '&current=temperature_2m,weather_code'
       + '&daily=temperature_2m_max,temperature_2m_min'
-      + '&timezone=America%2FArgentina%2FBuenos_Aires';
+      + `&timezone=${encodeURIComponent(weatherLoc.timezone)}`;
 
     try {
       const ctrl = new AbortController();
@@ -161,6 +166,17 @@
 
     root.setProperty('--clock-scale', cfg.clockScale || 1);
     root.setProperty('--text-scale', cfg.textScale || 1);
+
+    // Grosor de fuente: 0 = respetar el diseno original (no tocar la variable).
+    if (Number(cfg.fontWeight) > 0) root.setProperty('--font-weight', String(cfg.fontWeight));
+    else root.removeProperty('--font-weight');
+
+    // Ubicacion del clima (viene junto con la apariencia)
+    if (cfg.weather && cfg.weather.lat && cfg.weather.lon) {
+      Object.assign(weatherLoc, cfg.weather);
+      if (el.wCity && cfg.weather.city) el.wCity.textContent = cfg.weather.city;
+      updateWeather();
+    }
 
     const w = cfg.widgets || {};
     const show = (node, on) => { if (node) node.style.display = on === false ? 'none' : ''; };

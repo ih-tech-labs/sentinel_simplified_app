@@ -606,6 +606,9 @@
     $('ap-text').value = Math.round((cfg.textScale || 1) * 100);
     $('ap-clock-val').textContent = $('ap-clock').value + '%';
     $('ap-text-val').textContent = $('ap-text').value + '%';
+    $('ap-weight').value = String(cfg.fontWeight || 0);
+    $('ap-weight-val').textContent = $('ap-weight').selectedOptions[0]
+      ? $('ap-weight').selectedOptions[0].textContent.replace(/\s*\(.*\)/, '') : 'Automático';
     const w = cfg.widgets || {};
     $('ap-w-clock').checked = w.clock !== false;
     $('ap-w-date').checked = w.date !== false;
@@ -627,6 +630,10 @@
   $('ap-clock').oninput = () => { $('ap-clock-val').textContent = $('ap-clock').value + '%'; };
   $('ap-text').oninput = () => { $('ap-text-val').textContent = $('ap-text').value + '%'; };
   $('ap-color').oninput = () => { $('ap-color-val').textContent = $('ap-color').value; };
+  $('ap-weight').onchange = () => {
+    const o = $('ap-weight').selectedOptions[0];
+    $('ap-weight-val').textContent = o ? o.textContent.replace(/\s*\(.*\)/, '') : 'Automático';
+  };
 
   async function putAppearance(body, okMsg) {
     const fb = $('ap-feedback');
@@ -662,6 +669,7 @@
     textColor: $('ap-color').value,
     clockScale: Number($('ap-clock').value) / 100,
     textScale: Number($('ap-text').value) / 100,
+    fontWeight: Number($('ap-weight').value),
     widgets: {
       clock: $('ap-w-clock').checked,
       date: $('ap-w-date').checked,

@@ -195,6 +195,20 @@ check_endpoints() {
   check_http "$base/backoffice/"       302 "Backoffice exige login"
   check_http "$base/kiosk/?id=$kiosk"  200 "Kiosko accesible"
 
+  # No solo que la pagina se sirva: que el NAVEGADOR del kiosko este conectado.
+  # (Un tab crasheado deja la pantalla muerta con el servidor impecable.)
+  local kdesktop="$HOME/.config/autostart/sentinel-kiosk.desktop"
+  if [ -f "$kdesktop" ]; then
+    local kid kbody
+    kid="$(grep -m1 'sentinel kiosk' "$kdesktop" | awk '{print $NF}')"
+    kbody="$(curl -fsS --max-time 4 "$base/healthz/kiosks" 2>/dev/null)"
+    if [ -n "$kid" ] && printf '%s' "$kbody" | grep -q "\"$kid\":true"; then
+      check_pass "Navegador del kiosko conectado" "puesto '$kid'"
+    elif [ -n "$kid" ]; then
+      check_fail "El navegador del kiosko no está conectado" "puesto '$kid' — pantalla caída, mirá: sentinel logs kiosk"
+    fi
+  fi
+
   local wh
   wh="$(http_code_post "$base/verkada-webhook" 5)"
   case "$wh" in

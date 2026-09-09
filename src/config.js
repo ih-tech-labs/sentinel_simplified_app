@@ -104,6 +104,13 @@ const config = {
   // --- Salud del sistema ---
   HEALTH_INTERVAL_MS: int('HEALTH_INTERVAL_S', 5) * 1000,
 
+  // --- Clima del kiosko -------------------------------------------------------
+  // Por defecto Costa Esmeralda (Buenos Aires, AR). Cambialo por sitio en .env.
+  WEATHER_LAT: process.env.WEATHER_LAT || '-37.0206',
+  WEATHER_LON: process.env.WEATHER_LON || '-56.8309',
+  WEATHER_CITY: process.env.WEATHER_CITY || 'Costa Esmeralda',
+  WEATHER_TIMEZONE: process.env.WEATHER_TIMEZONE || 'America/Argentina/Buenos_Aires',
+
   // true si corre detras de Cloudflare Tunnel / proxy
   TRUST_PROXY: bool('TRUST_PROXY', true),
   SECURE_COOKIE: bool('SECURE_COOKIE', false),

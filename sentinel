@@ -502,22 +502,97 @@ cmd_kiosk() {
   #   agregado --autoplay-policy         : sin esto Chromium puede bloquear el
   #     arranque del video y la pantalla queda negra hasta que alguien la toca
   #   agregado --ignore-gpu-blocklist    : fuerza el uso de la GPU VideoCore
-  echo -e "${G}▸ Iniciando kiosko...${N}"
-  exec "$chrome" \
-    --kiosk --start-fullscreen \
-    --noerrdialogs --disable-infobars --disable-session-crashed-bubble \
-    --disable-translate --no-first-run --no-default-browser-check \
-    --check-for-update-interval=31536000 \
-    --autoplay-policy=no-user-gesture-required \
-    --disk-cache-dir="$cache" --disk-cache-size=104857600 \
-    --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy \
-    --disable-background-timer-throttling \
-    --disable-backgrounding-occluded-windows \
-    --disable-renderer-backgrounding \
-    --disable-features=TranslateUI,Translate,CalculateNativeWinOcclusion \
-    --disable-pinch --overscroll-history-navigation=0 --hide-scrollbars \
-    --use-fake-ui-for-media-stream \
-    "$url"
+  # Flags afinados para RPi 5 (una sola definicion: sirve al arranque y a cada
+  # relanzamiento del lazo supervisor).
+  local -a flags=(
+    --kiosk --start-fullscreen
+    --noerrdialogs --disable-infobars --disable-session-crashed-bubble
+    --disable-translate --no-first-run --no-default-browser-check
+    --check-for-update-interval=31536000
+    --autoplay-policy=no-user-gesture-required
+    --disk-cache-dir="$cache" --disk-cache-size=104857600
+    --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy
+    --disable-background-timer-throttling
+    --disable-backgrounding-occluded-windows
+    --disable-renderer-backgrounding
+    --disable-features=TranslateUI,Translate,CalculateNativeWinOcclusion
+    --disable-pinch --overscroll-history-navigation=0 --hide-scrollbars
+    --use-fake-ui-for-media-stream
+  )
+
+  # --- Opt-out: comportamiento clasico (exec directo, sin autorecuperacion) ---
+  local wd_on; wd_on="$(env_get KIOSK_WATCHDOG_ENABLED true)"
+  if [ "${wd_on,,}" != "true" ] && [ "$wd_on" != "1" ]; then
+    echo -e "${G}▸ Iniciando kiosko...${N}"
+    exec "$chrome" "${flags[@]}" "$url"
+  fi
+
+  # --- Lazo supervisor --------------------------------------------------------
+  # Relanza el navegador si (a) el proceso muere entero, o (b) el tab crashea:
+  # el proceso sigue vivo pero el puesto deja de estar conectado al servidor
+  # (justo el caso del "Aw, Snap!"). El watchdog de systemd NO puede hacer esto
+  # porque corre headless, sin la sesion grafica; este lazo si, porque lo lanza
+  # el autostart dentro de la sesion.
+  local poll grace maxr window klog
+  poll="$(env_get KIOSK_WATCHDOG_POLL_S 15)"
+  grace="$(env_get KIOSK_WATCHDOG_GRACE_S 90)"
+  maxr="$(env_get KIOSK_WATCHDOG_MAX_RESTARTS 5)"
+  window="$(env_get KIOSK_WATCHDOG_WINDOW_S 600)"
+  klog="$HOME/.sentinel-kiosk.log"
+
+  local KPID="" restarts=""
+  klog_write() { printf '%s  %s\n' "$(date '+%F %T')" "$1" >> "$klog"; tail -200 "$klog" > "$klog.tmp" 2>/dev/null && mv "$klog.tmp" "$klog" 2>/dev/null || true; }
+  launch()     { "$chrome" "${flags[@]}" "$url" >/dev/null 2>&1 & KPID=$!; }
+  connected()  {
+    local b; b="$(curl -fsS --max-time 4 "http://localhost:$port/healthz/kiosks" 2>/dev/null)" || return 2
+    printf '%s' "$b" | grep -q "\"$id\":true"
+  }
+  allow_restart() {
+    local now="$1" t keep="" count=0
+    for t in $restarts; do [ $((now - t)) -lt "$window" ] && { keep="$keep $t"; count=$((count+1)); }; done
+    restarts="$keep"
+    [ "$count" -ge "$maxr" ] && return 1
+    restarts="$restarts $now"; return 0
+  }
+  restart() {  # $1 = motivo
+    local now; now="$(date +%s)"
+    if ! allow_restart "$now"; then
+      klog_write "FRENO anti-loop ($1): $maxr reinicios en ${window}s, no relanzo"
+      return 1
+    fi
+    pkill -f "$cache" 2>/dev/null; sleep 2; launch
+    klog_write "REINICIADO ($1) -> PID $KPID"
+  }
+
+  trap 'pkill -f "$cache" 2>/dev/null; exit' EXIT INT TERM
+
+  echo -e "${G}▸ Iniciando kiosko (autorecuperacion activada)...${N}"
+  launch
+  klog_write "ARRANQUE PID $KPID · poll ${poll}s grace ${grace}s"
+  ok "Kiosko lanzado (PID $KPID) · se autorecupera si se cae"
+
+  local down_since=0 now st
+  while true; do
+    sleep "$poll"
+
+    # (a) proceso muerto -> relanzar
+    if ! kill -0 "$KPID" 2>/dev/null && ! pgrep -f "$cache" >/dev/null 2>&1; then
+      restart "navegador caido"; down_since=0; continue
+    fi
+
+    # (b) tab conectado?
+    connected; st=$?
+    if [ "$st" -eq 0 ]; then down_since=0; continue; fi   # conectado
+    if [ "$st" -eq 2 ]; then down_since=0; continue; fi   # servidor caido: no es el navegador
+
+    # st==1: servidor ok pero el puesto no esta conectado
+    now="$(date +%s)"
+    [ "$down_since" -eq 0 ] && down_since="$now"
+    if [ $((now - down_since)) -ge "$grace" ]; then
+      restart "tab desconectado ${grace}s+"
+      down_since=0
+    fi
+  done
 }
 
 # ---------------------------------------------------------------------------
@@ -526,8 +601,9 @@ cmd_logs() {
     server|servidor) pm2 logs sentinel --lines "${2:-40}" ;;
     gpio|luces)      pm2 logs sentinel-gpio --lines "${2:-40}" ;;
     tunnel|tunel)    sudo journalctl -u cloudflared -n "${2:-40}" --no-pager ;;
+    kiosk|kiosko)    [ -s "$HOME/.sentinel-kiosk.log" ] && tail -"${2:-40}" "$HOME/.sentinel-kiosk.log" || info "El kiosko no registró eventos todavía." ;;
     all|todo)        pm2 logs --lines "${2:-20}" ;;
-    *) err "Uso: sentinel logs [server|gpio|tunnel|all] [líneas]"; return 1 ;;
+    *) err "Uso: sentinel logs [server|gpio|tunnel|kiosk|all] [líneas]"; return 1 ;;
   esac
 }
 
