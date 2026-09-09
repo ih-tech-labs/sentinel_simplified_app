@@ -102,6 +102,32 @@
         </div>
       </section>
 
+
+      <!-- Historial -->
+      <section class="panel panel-grow">
+        <div class="panel-head">
+          <h3>Registro de Eventos</h3>
+          <div class="panel-actions">
+            <span class="badge" id="evt-pending">0</span>
+            <button class="btn-mini" id="btn-ack-all" title="Reconocer todos">✓</button>
+          </div>
+        </div>
+        <div class="filters">
+          <select id="f-kiosk" aria-label="Filtrar por puesto">
+            <option value="all">Todos los puestos</option>
+          </select>
+          <select id="f-sev" aria-label="Filtrar por tipo">
+            <option value="all">Todo tipo</option>
+            <option value="alert">Alarmas</option>
+            <option value="test">Pruebas</option>
+            <option value="info">Sistema</option>
+          </select>
+        </div>
+        <div class="timeline" id="timeline">
+          <div class="empty">Sin eventos registrados</div>
+        </div>
+      </section>
+
       <!-- Apariencia del kiosko -->
       <section class="panel">
         <div class="panel-head">
@@ -154,31 +180,6 @@
             <button class="btn" id="ap-reset" title="Volver a los valores originales"><span>Restablecer</span></button>
           </div>
           <div class="gpio-feedback" id="ap-feedback"></div>
-        </div>
-      </section>
-
-      <!-- Historial -->
-      <section class="panel panel-grow">
-        <div class="panel-head">
-          <h3>Registro de Eventos</h3>
-          <div class="panel-actions">
-            <span class="badge" id="evt-pending">0</span>
-            <button class="btn-mini" id="btn-ack-all" title="Reconocer todos">✓</button>
-          </div>
-        </div>
-        <div class="filters">
-          <select id="f-kiosk" aria-label="Filtrar por puesto">
-            <option value="all">Todos los puestos</option>
-          </select>
-          <select id="f-sev" aria-label="Filtrar por tipo">
-            <option value="all">Todo tipo</option>
-            <option value="alert">Alarmas</option>
-            <option value="test">Pruebas</option>
-            <option value="info">Sistema</option>
-          </select>
-        </div>
-        <div class="timeline" id="timeline">
-          <div class="empty">Sin eventos registrados</div>
         </div>
       </section>
 

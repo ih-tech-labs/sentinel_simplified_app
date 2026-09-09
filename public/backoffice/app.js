@@ -998,6 +998,33 @@
   // Cortar la llamada limpio si se cierra la pestaña
   window.addEventListener('beforeunload', () => { if (state.call) socket.emit('end_call'); });
 
+  // ==========================================================================
+  // Paneles colapsables del panel lateral (el estado se recuerda por navegador)
+  // ==========================================================================
+  (function setupCollapsiblePanels() {
+    const KEY = 'sentinel_panels_collapsed';
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (_) { saved = {}; }
+
+    document.querySelectorAll('.side .panel').forEach((panel) => {
+      const head = panel.querySelector('.panel-head');
+      const h3 = panel.querySelector('.panel-head h3');
+      const key = h3 ? h3.textContent.trim() : '';
+      if (!head) return;
+      if (key && saved[key]) panel.classList.add('collapsed');
+
+      head.addEventListener('click', (e) => {
+        // No colapsar si el clic fue sobre un control del encabezado
+        if (e.target.closest('button, select, input, a')) return;
+        panel.classList.toggle('collapsed');
+        if (key) {
+          saved[key] = panel.classList.contains('collapsed');
+          try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (_) { /* modo privado */ }
+        }
+      });
+    });
+  })();
+
   // Atajo: ESC cuelga
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && state.call) endCall();

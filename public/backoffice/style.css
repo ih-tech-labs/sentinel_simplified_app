@@ -1297,3 +1297,33 @@ body.mono-cam .layout {
   flex: 1;
   justify-content: center;
 }
+
+/* --- Paneles colapsables del panel lateral --- */
+.side .panel-head {
+  cursor: pointer;
+  user-select: none;
+}
+
+.side .panel-head::after {
+  content: '▾';
+  margin-left: 10px;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1;
+  transform: translateY(-1px);
+  transition: transform .2s ease;
+  flex: 0 0 auto;
+}
+
+.side .panel.collapsed .panel-head::after {
+  transform: translateY(-1px) rotate(-90deg);
+}
+
+/* Colapsado: se ve solo el encabezado */
+.side .panel.collapsed > *:not(.panel-head) {
+  display: none;
+}
+
+.side .panel.collapsed {
+  flex: 0 0 auto;
+}
