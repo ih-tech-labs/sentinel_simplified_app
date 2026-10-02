@@ -62,12 +62,11 @@ if ! command -v arduino-cli >/dev/null 2>&1; then
 fi
 echo "==> $(arduino-cli version)"
 
-# --- 2. Core AVR + librería --------------------------------------------------
+# --- 2. Core AVR -------------------------------------------------------------
+# El firmware directo no usa librerías externas (LEDs por analogWrite, sin PCA).
 arduino-cli config init --overwrite >/dev/null 2>&1 || true
 arduino-cli core update-index >/dev/null
 arduino-cli core list | grep -q "^arduino:avr" || arduino-cli core install arduino:avr
-arduino-cli lib list 2>/dev/null | grep -qi "Adafruit PWM Servo Driver" \
-  || arduino-cli lib install "Adafruit PWM Servo Driver Library"
 
 # --- 3. Puerto ---------------------------------------------------------------
 if [ -z "$PORT" ]; then
