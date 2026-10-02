@@ -496,6 +496,15 @@ cmd_kiosk() {
   local cache="/tmp/sentinel-chromium-cache"
   mkdir -p "$cache"
 
+  # Un apagón sucio (corte de luz) puede corromper el cache de GPU/shaders de
+  # Chromium y dejar la PANTALLA EN BLANCO: la pagina carga pero no renderiza.
+  # Esos caches son descartables, asi que los limpiamos en cada arranque. En un
+  # equipo fanless que vive de cortes de luz, esto evita que un apagon deje el
+  # kiosko mudo hasta que alguien vaya a borrarlo a mano.
+  rm -rf "$HOME/.cache/chromium" "$HOME"/.config/chromium/GPUCache \
+         "$HOME"/.config/chromium/*/GPUCache "$HOME"/.config/chromium/*/"Code Cache" \
+         "$HOME"/.config/chromium/ShaderCache "$HOME"/.config/chromium/GrShaderCache 2>/dev/null || true
+
   # Flags afinados para RPi 5. Los cambios respecto de la v4 y por qué:
   #   quitado --disk-cache-dir=/dev/null : desactivaba el caché, así que
   #     Chromium volvía a leer y parsear el video de fondo en cada arranque
