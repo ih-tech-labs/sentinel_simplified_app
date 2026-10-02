@@ -95,7 +95,10 @@ void initPca() {
     pwm = new Adafruit_PWMServoDriver(pcaAddr);
     pwm->begin();
     pwm->setPWMFreq(1000);               // alto para que no parpadee en cámara
-    Wire.setClock(400000);               // I2C rápido: margen para refrescar a 60fps
+    // (Nada de Wire.setClock(400000): a 400kHz el bus I2C se corrompe en
+    //  cableados con pull-ups justos o cables largos y el PCA9685 deja de
+    //  recibir. A 100kHz —el default— los 60fps andan de sobra: 10 canales
+    //  a ~0.45ms cada uno = 4.5ms por cuadro, holgado dentro de los 16ms.)
     pcaOk = true;
   }
 }
