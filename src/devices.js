@@ -117,47 +117,28 @@ async function rawSend(frame) {
 // solo el estado anterior.
 // ---------------------------------------------------------------------------
 
-let tempState = null; // { baselineFrame, timer, anim, preset }
+let tempState = null; // { baselineFrame, timer, preset }
+
+// Periodo del "respirado" del saludo POI, en ms. El respirado lo hace el
+// FIRMWARE (EFFECT 3): respira a 60 fps y 12 bits, suave y sin escalones. El
+// servidor manda UN solo frame con EFFECT=3 y el Arduino hace el resto — nada
+// de animar por software a 6 fps como antes (eso era lo que se veia escalonado).
+const BREATH_PERIOD_MS = 2600;
 
 function cancelTemporary() {
   if (!tempState) return;
   clearTimeout(tempState.timer);
-  if (tempState.anim) clearInterval(tempState.anim);
   tempState = null;
 }
 
-/**
- * Animacion de respiracion: reescala los 5 canales de color con una senoidal
- * y manda un frame cada ~160 ms DIRECTO al daemon (nunca por el CLI: cada
- * invocacion del CLI resetea al Arduino, seria un desastre a 6 fps).
- * Si el daemon deja de responder, la animacion se detiene sola y queda el
- * color fijo del ultimo frame bueno.
- */
-function startBreathing(frame) {
-  const parts = frame.split(',').map(Number);
-  const channels = parts.slice(0, 5);
-  const tail = parts.slice(5).join(',');
-  let phase = 0;
-  let inFlight = false;
-
-  const anim = setInterval(() => {
-    if (inFlight) return; // no encolar si el daemon viene atrasado
-    phase += 0.55; // ciclo completo cada ~1.8 s
-    const scale = 0.12 + 0.88 * (0.5 + 0.5 * Math.sin(phase));
-    const breathed = channels.map((c) => Math.round(c * scale)).join(',') + ',' + tail;
-    inFlight = true;
-    sendViaDaemon(breathed, 1500)
-      .then(() => { inFlight = false; })
-      .catch(() => {
-        inFlight = false;
-        if (tempState && tempState.anim === anim) {
-          clearInterval(anim);
-          tempState.anim = null;
-        }
-      });
-  }, 160);
-  if (anim.unref) anim.unref();
-  return anim;
+/** El mismo frame pero con EFFECT=3 (respiracion nativa) y el periodo en ARG1
+ *  (decimas de segundo). Los 5 canales de color quedan intactos. */
+function toBreatheFrame(frame, periodMs) {
+  const p = frame.split(',');
+  p[5] = '3';
+  p[6] = String(Math.max(1, Math.round(periodMs / 100)));
+  p[7] = '0';
+  return p.slice(0, 8).join(',');
 }
 
 /**
@@ -176,8 +157,9 @@ async function sendFrame(frame) {
  * ninguno). Si llegan dos saludos seguidos, el segundo extiende la ventana
  * pero el estado a restaurar sigue siendo el ORIGINAL, no el del saludo.
  *
- * @param {'solid'|'breathe'} mode  'breathe' hace respirar el color mientras
- *   dura la ventana (requiere el daemon; sin daemon cae a color fijo).
+ * @param {'solid'|'breathe'} mode  'breathe' => el Arduino respira el color
+ *   (EFFECT 3) mientras dura la ventana; al terminar se restaura el estado
+ *   anterior. 'solid' => color fijo.
  */
 async function sendTemporaryFrame(frame, seconds, mode = 'solid', label = 'personalizado') {
   if (!FRAME_RE.test(frame)) {
@@ -189,22 +171,16 @@ async function sendTemporaryFrame(frame, seconds, mode = 'solid', label = 'perso
     : (lastCommand ? lastCommand.frame : PRESETS.off.frame);
   if (tempState) clearTimeout(tempState.timer);
 
-  if (tempState && tempState.anim) clearInterval(tempState.anim);
+  // El respirado lo resuelve el firmware: mandamos UN frame con EFFECT=3.
+  const outFrame = (mode === 'breathe') ? toBreatheFrame(frame, BREATH_PERIOD_MS) : frame;
 
-  const result = await rawSend(frame);
+  const result = await rawSend(outFrame);
   if (!result.ok) {
     tempState = null;
     return { ...result, label };
   }
 
-  // Respiracion solo si el frame inicial salio por el daemon: es la prueba
-  // de que hay daemon vivo para sostener la animacion.
-  const anim = (mode === 'breathe' && result.via === 'daemon')
-    ? startBreathing(frame)
-    : null;
-
   const timer = setTimeout(() => {
-    if (tempState && tempState.anim) clearInterval(tempState.anim);
     tempState = null;
     rawSend(baselineFrame).then((r) => {
       if (!r.ok) console.warn('[GPIO] No se pudo restaurar el estado previo:', r.error);
@@ -212,8 +188,8 @@ async function sendTemporaryFrame(frame, seconds, mode = 'solid', label = 'perso
   }, holdS * 1000);
   if (timer.unref) timer.unref();
 
-  tempState = { baselineFrame, timer, anim, preset: label };
-  return { ...result, label, mode: anim ? 'breathe' : 'solid', restoresInS: holdS };
+  tempState = { baselineFrame, timer, preset: label };
+  return { ...result, label, mode, restoresInS: holdS };
 }
 
 /** Igual que sendTemporaryFrame pero por nombre de preset. */

@@ -95,6 +95,7 @@ void initPca() {
     pwm = new Adafruit_PWMServoDriver(pcaAddr);
     pwm->begin();
     pwm->setPWMFreq(1000);               // alto para que no parpadee en cámara
+    Wire.setClock(400000);               // I2C rápido: margen para refrescar a 60fps
     pcaOk = true;
   }
 }
@@ -110,6 +111,26 @@ void writeLeds(int r, int g, int b, int w, int ww) {
   setChannel(CH_FRONT_W, w); setChannel(CH_FRONT_WW, ww);
   setChannel(CH_REAR_R, r);  setChannel(CH_REAR_G, g);  setChannel(CH_REAR_B, b);
   setChannel(CH_REAR_W, w);  setChannel(CH_REAR_WW, ww);
+}
+
+// Escala un canal (0..255) a 12 bits multiplicando por un factor de brillo
+// (0..1). CLAVE para que los efectos suaves NO muestren escalones: el brillo
+// se calcula en 12 bits (4096 niveles), no en 8 (256). El factor ya viene con
+// gamma aplicada desde el efecto, así que la rampa es perceptualmente pareja.
+void setChannelF(int8_t ch, int value255, float factor) {
+  if (!pcaOk || ch < 0) return;
+  long base = ((long)constrain(value255, 0, 255) * 4095L) / 255L;
+  long v = (long)(base * factor + 0.5f);
+  if (v < 0) v = 0;
+  if (v > 4095) v = 4095;
+  pwm->setPWM(ch, 0, (uint16_t)v);
+}
+
+void writeLedsF(int r, int g, int b, int w, int ww, float factor) {
+  setChannelF(CH_FRONT_R, r, factor); setChannelF(CH_FRONT_G, g, factor); setChannelF(CH_FRONT_B, b, factor);
+  setChannelF(CH_FRONT_W, w, factor); setChannelF(CH_FRONT_WW, ww, factor);
+  setChannelF(CH_REAR_R, r, factor);  setChannelF(CH_REAR_G, g, factor);  setChannelF(CH_REAR_B, b, factor);
+  setChannelF(CH_REAR_W, w, factor);  setChannelF(CH_REAR_WW, ww, factor);
 }
 
 // Sirena: frente y atrás alternados, estilo baliza
@@ -218,21 +239,21 @@ void updateLeds() {
       break;
     }
 
-    case 3: {  // respiración
+    case 3: {  // respiración (suave: 60fps, 12 bits, gamma ~2 → sin escalones)
       float phase = (float)(now % effectPeriodMs) / (float)effectPeriodMs * TWO_PI;
-      float f = 0.12 + 0.88 * (0.5 * (1.0 + sin(phase)));
-      writeLeds((int)(targetR * f), (int)(targetG * f), (int)(targetB * f),
-                (int)(targetW * f), (int)(targetWW * f));
+      float lin = 0.5 * (1.0 + sin(phase));   // 0..1 lineal
+      float g = lin * lin;                     // gamma ~2.0 (brillo perceptual)
+      float f = 0.02 + 0.98 * g;               // nunca negro total
+      writeLedsF(targetR, targetG, targetB, targetW, targetWW, f);
       curR = targetR; curG = targetG; curB = targetB; curW = targetW; curWW = targetWW;
       break;
     }
 
-    case 4: {  // pulso: latido con pico
+    case 4: {  // pulso: latido con pico (12 bits)
       float phase = (float)(now % effectPeriodMs) / (float)effectPeriodMs;
       float val = 0.5 * (1.0 + sin(phase * TWO_PI - PI / 2.0));
       float f = 0.1 + 0.9 * pow(val, 4.0);
-      writeLeds((int)(targetR * f), (int)(targetG * f), (int)(targetB * f),
-                (int)(targetW * f), (int)(targetWW * f));
+      writeLedsF(targetR, targetG, targetB, targetW, targetWW, f);
       curR = targetR; curG = targetG; curB = targetB; curW = targetW; curWW = targetWW;
       break;
     }
