@@ -108,6 +108,26 @@
   const weatherLoc = { lat: '-37.0206', lon: '-56.8309', city: 'Costa Esmeralda',
     timezone: 'America/Argentina/Buenos_Aires' };
 
+  // Render del clima desde un objeto {temp, code, max, min}
+  const WX_KEY = 'sentinel_wx';
+  function renderWeather(d) {
+    if (!d) return;
+    const w = weatherFor(d.code);
+    el.wTemp.textContent = `${Math.round(d.temp)}°`;
+    el.wDesc.textContent = w.desc;
+    el.wRange.textContent = `Máx ${Math.round(d.max)}° · Mín ${Math.round(d.min)}°`;
+    el.wIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+      stroke-linecap="round" stroke-linejoin="round">${SVG[w.icon]}</svg>`;
+  }
+
+  // Al arrancar mostramos el último clima guardado — aunque estemos offline o
+  // recién reiniciados. Es "clima viejo", pero la pantalla nunca queda en --°.
+  // Se refresca solo si en algún momento hay internet.
+  try {
+    const cached = JSON.parse(localStorage.getItem(WX_KEY) || 'null');
+    if (cached) renderWeather(cached);
+  } catch (_) { /* sin localStorage: no pasa nada */ }
+
   async function updateWeather() {
     const url = 'https://api.open-meteo.com/v1/forecast'
       + `?latitude=${encodeURIComponent(weatherLoc.lat)}&longitude=${encodeURIComponent(weatherLoc.lon)}`
@@ -123,14 +143,18 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const d = await res.json();
 
-      const w = weatherFor(d.current.weather_code);
-      el.wTemp.textContent = `${Math.round(d.current.temperature_2m)}°`;
-      el.wDesc.textContent = w.desc;
-      el.wRange.textContent = `Máx ${Math.round(d.daily.temperature_2m_max[0])}° · Mín ${Math.round(d.daily.temperature_2m_min[0])}°`;
-      el.wIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-        stroke-linecap="round" stroke-linejoin="round">${SVG[w.icon]}</svg>`;
+      const data = {
+        temp: d.current.temperature_2m,
+        code: d.current.weather_code,
+        max: d.daily.temperature_2m_max[0],
+        min: d.daily.temperature_2m_min[0],
+        ts: Date.now(),
+      };
+      renderWeather(data);
+      // Se persiste para mostrarlo offline / tras un reinicio (clima viejo).
+      try { localStorage.setItem(WX_KEY, JSON.stringify(data)); } catch (_) { /* ignore */ }
     } catch (err) {
-      // Sin internet el kiosko igual funciona: dejamos el último valor visible
+      // Sin internet: se queda el último valor en pantalla (el cacheado).
       console.warn('[weather]', err.message);
     }
   }
